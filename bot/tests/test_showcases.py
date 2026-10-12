@@ -317,7 +317,7 @@ async def test_takedown_content_never_delivered_even_to_buyers(env, client):  # 
     from tests.test_flows import pay
     c = await make_product(env, price=10)
     await pay(env, c, buyer=BUYER, charge="td-x")
-    await env.feed(env.main, message(OWNER, f"/takedown https://t.me/bot{SHOP_ID}?start={c.code}"))
+    await env.feed(env.main, message(OWNER, f"/takedown https://ble.ir/bot{SHOP_ID}?start={c.code}"))
     env.tg.clear()
     await env.feed(env.shop, message(BUYER, f"/start {c.code}"))
     assert "وجود نداره" in env.tg.texts(SHOP_ID)

@@ -14,6 +14,7 @@ from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError, Teleg
 from aiogram.types import BotCommand, BotCommandScopeChat
 from sqlalchemy import delete, select
 
+from app.bale import make_bale_bot
 from app.crypto import decrypt
 from app.db import DeleteJob, SessionLocal, Seller, User
 from app.texts import COMMANDS, MAIN_COMMANDS, MENU_LANG_CODES, SELLER_COMMANDS, T
@@ -37,7 +38,7 @@ async def reset_session(bot: Bot) -> None:
 
 
 def make_bot(token: str) -> Bot:
-    return Bot(token=token, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+    return make_bale_bot(token)  # سرور بله + تبدیل متن HTML به Markdown بله (app/bale.py)
 
 
 class BotManager:

@@ -176,7 +176,7 @@ async def home_view(session: AsyncSession, user: User, manager: BotManager) -> t
     if seller.is_suspended:
         text = t["shop_suspended_line"] + "\n\n" + text
     markup = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text=t["btn_upload"], url=f"https://t.me/{seller.bot_username}?start=upload")],
+        [InlineKeyboardButton(text=t["btn_upload"], url=f"https://ble.ir/{seller.bot_username}?start=upload")],
         [btn(t["btn_sales"], "shop:sales"), btn(t["btn_links"], "shop:links")],
         [btn(t["btn_withdraw"], "shop:withdraw"), btn(t["btn_refresh"], "shop:home")],
         [btn(t["btn_disconnect"], "shop:disconnect")],
@@ -259,7 +259,7 @@ async def shop_links(callback: CallbackQuery, session: AsyncSession, db_user: Us
             label += f" · {c.price_stars} ⭐" if c.price_stars else f" · {t['price_free']}"
             if c.is_sensitive:
                 label += " · ⏳"
-            link = f"https://t.me/{seller.bot_username}?start={c.code}"
+            link = f"https://ble.ir/{seller.bot_username}?start={c.code}"
             lines.append(f"• {label}\n   <code>{link}</code>  ({c.views} {t['views']})")
         text = "\n".join(lines)
     await show(callback, text, back_markup(t))

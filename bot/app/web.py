@@ -180,7 +180,7 @@ def product_json(c: Content, seller: Seller, stats: dict | None = None, showcase
         "allow_save": c.allow_save, "status": status, "views": c.views, "in_store": c.in_store,
         "showcases": showcases_of or [], "rating": (stats or {}).get("rating"),
         "expires_at": c.expires_at.isoformat() + "Z" if c.expires_at else None,
-        "link": f"https://t.me/{seller.bot_username}?start={c.code}",
+        "link": f"https://ble.ir/{seller.bot_username}?start={c.code}",
         "has_thumb": c.kind != "text", "text": (preview.plain_text(c)[:80] if c.kind == "text" else None),
         "preview": preview.stored(c).get("text"), "pages": preview.stored(c).get("pages"),
         "created": c.created_at.isoformat() if c.created_at else None, **stats,
@@ -519,7 +519,7 @@ async def api_showcases(request: web.Request) -> web.Response:
             Content.bot_id == seller.bot_id, Content.is_active.is_(True), Content.is_draft.is_(False),
             Content.in_store.is_(True)))
         items = [await showcase_json(session, sc, seller) for sc in rows]
-    return web.json_response({"main": {"items": main_items, "link": f"https://t.me/{seller.bot_username}?start=store"},
+    return web.json_response({"main": {"items": main_items, "link": f"https://ble.ir/{seller.bot_username}?start=store"},
                               "items": items, "max": showcases.MAX_SHOWCASES})
 
 
@@ -761,7 +761,7 @@ async def api_sc_open(request: web.Request) -> web.Response:
             return error("shop_offline", 503)
         if sc.owner_id == user.id:
             await deliver(bot, user.id, c, session, user.language)
-            return web.json_response({"chat": f"https://t.me/{seller.bot_username}"})
+            return web.json_response({"chat": f"https://ble.ir/{seller.bot_username}"})
         m = await showcases.active_membership(session, sc.id, user.id)
         if m is None:
             return error("sc_not_member", 403)
@@ -771,7 +771,7 @@ async def api_sc_open(request: web.Request) -> web.Response:
         if purchase is None:
             return error("sc_not_member", 403)
         await open_purchase(bot, user.id, purchase, c, session, user.language)
-    return web.json_response({"chat": f"https://t.me/{seller.bot_username}"})
+    return web.json_response({"chat": f"https://ble.ir/{seller.bot_username}"})
 
 
 async def api_sc_renewal(request: web.Request) -> web.Response:
@@ -954,7 +954,7 @@ async def pinnable(session: AsyncSession, seller: Seller, sc: Showcase | None, c
 
 async def api_qr(request: web.Request) -> web.Response:
     text = request.query.get("text", "")
-    if not text.startswith("https://t.me/") or len(text) > 256:
+    if not text.startswith("https://ble.ir/") or len(text) > 256:
         return error("bad_request")
     return web.json_response({"rows": looks.qr_matrix(text)})
 
@@ -963,7 +963,7 @@ async def api_qr(request: web.Request) -> web.Response:
 def link_json(c: Content, main_username: str) -> dict:
     return {"id": c.id, "kind": c.kind, "title": c.file_name, "views": c.views, "size": c.file_size,
             "duration": c.duration, "created": c.created_at.isoformat() if c.created_at else None,
-            "link": f"https://t.me/{main_username}?start={c.code}", "has_thumb": c.kind != "text",
+            "link": f"https://ble.ir/{main_username}?start={c.code}", "has_thumb": c.kind != "text",
             "text": preview.plain_text(c)[:80] if c.kind == "text" else None}
 
 
@@ -1064,7 +1064,7 @@ async def api_purchases(request: web.Request) -> web.Response:
             "id": p.id, "content_id": c.id, "kind": c.kind, "title": c.title or c.file_name, "amount": p.amount,
             "shop": s.bot_username, "shop_bot_id": s.bot_id, "opened": p.opened_at is not None,
             "date": p.created_at.date().isoformat() if p.created_at else None,
-            "link": f"https://t.me/{s.bot_username}?start={c.code}",
+            "link": f"https://ble.ir/{s.bot_username}?start={c.code}",
         } for p, c, s in rows]})
 
 
@@ -1088,7 +1088,7 @@ def creator_shop(seller: Seller) -> dict:
     from app.creator import TIP_MAX, TIP_PRESETS
     return {"bio": seller.bio, "category": seller.category, "dm_mode": seller.dm_mode,
             "tips": list(TIP_PRESETS), "tip_max": TIP_MAX,
-            "chat": f"https://t.me/{seller.bot_username}"}
+            "chat": f"https://ble.ir/{seller.bot_username}"}
 
 
 async def store_seller(session: AsyncSession, bot_id: str) -> Seller | None:
@@ -1135,7 +1135,7 @@ async def api_store(request: web.Request) -> web.Response:
     return web.json_response({
         "others": [{"code": o.code, "title": o.title, "access": o.access, "price": o.price} for o in others],
         "look": looks.look_json(seller),
-        "link": f"https://t.me/{seller.bot_username}?start=store",
+        "link": f"https://ble.ir/{seller.bot_username}?start=store",
         "main_bot": request.app["main_username"],
         "shop": {"bot": seller.bot_username, "bot_id": seller.bot_id, "owner_name": owner.first_name if owner else "",
                  "suspended": seller.is_suspended, "is_owner": seller.owner_id == user.id,
@@ -1242,7 +1242,7 @@ async def api_store_invoice(request: web.Request) -> web.Response:
     if c.is_sensitive and c.owner_id != user.id and not user.adult_ok:
         return error("adult_confirm", 409)   # یک بار تأیید ۱۸+ (POST /api/store/<bot>/adult)
     if c.price_stars == 0 or bought or c.owner_id == user.id:
-        return web.json_response({"open": f"https://t.me/{seller.bot_username}?start={c.code}"})
+        return web.json_response({"open": f"https://ble.ir/{seller.bot_username}?start={c.code}"})
     if bot is None:
         return error("shop_offline", 503)
     if not rate_ok(f"inv:{user.id}", 30, 600):  # هر کاربر ۳۰ فاکتور در ۱۰ دقیقه (سهمیه‌ی ربات فروشنده هدر نرود)
@@ -1284,7 +1284,7 @@ async def api_store_open(request: web.Request) -> web.Response:
             await open_purchase(bot, user.id, purchase, c, session, user.language)
         else:
             await deliver(bot, user.id, c, session, user.language)
-    return web.json_response({"chat": f"https://t.me/{seller.bot_username}"})
+    return web.json_response({"chat": f"https://ble.ir/{seller.bot_username}"})
 
 
 async def api_store_rate(request: web.Request) -> web.Response:

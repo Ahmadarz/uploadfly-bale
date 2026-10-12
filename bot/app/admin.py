@@ -142,7 +142,7 @@ async def srclink_cmd(message: Message, command: CommandObject, main_username: s
         await message.answer("بعد از دستور یک نام بنویسید، مثلاً:\n/srclink insta_ali\n(فقط حروف انگلیسی کوچک، عدد و _)")
         return
     src = clean_source(tag)
-    await message.answer(f"🔗 لینک تبلیغ «{src[4:]}»:\n<code>https://t.me/{main_username}?start={src}</code>\n\n"
+    await message.answer(f"🔗 لینک تبلیغ «{src[4:]}»:\n<code>https://ble.ir/{main_username}?start={src}</code>\n\n"
                          "هر کس اولین بار با این لینک بیاید، در /stats زیر همین نام شمرده می‌شود.")
 
 
@@ -197,7 +197,7 @@ async def reports_cmd(message: Message, session: AsyncSession):
         for content_id, n in Counter(c for c, _ in items).most_common(3):
             content = await session.get(Content, content_id)
             if content and seller:
-                lines.append(f"   • {n}× https://t.me/{seller.bot_username}?start={content.code}")
+                lines.append(f"   • {n}× https://ble.ir/{seller.bot_username}?start={content.code}")
     lines.append("\nتصمیم با توست: /suspend @ربات · /takedown لینک · /ban @کاربر")
     await message.answer("\n".join(lines), disable_web_page_preview=True)
 

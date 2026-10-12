@@ -121,7 +121,7 @@ async def test_blacklisted_file_rejected_everywhere(env):
 
 async def test_admin_takedown_by_link(env):
     c = await make_product(env, price=10)
-    await env.feed(env.main, message(OWNER, f"/takedown https://t.me/bot{SHOP_ID}?start={c.code}"))
+    await env.feed(env.main, message(OWNER, f"/takedown https://ble.ir/bot{SHOP_ID}?start={c.code}"))
     assert "حذف شد" in env.tg.texts(MAIN_ID)
     async with SessionLocal() as s:
         assert not (await s.get(Content, c.id)).is_active

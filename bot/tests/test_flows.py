@@ -36,7 +36,7 @@ async def test_main_bot_upload_by_shop_owner_points_to_shop(env):
     assert "لینک ساخته شد" in env.tg.texts(MAIN_ID)
     assert "برای <b>فروش</b>" in env.tg.texts(MAIN_ID)
     urls = [b.get("url", "") for b in env.tg.buttons(MAIN_ID)]
-    assert f"https://t.me/bot{SHOP_ID}?start=upload" in urls
+    assert f"https://ble.ir/bot{SHOP_ID}?start=upload" in urls
 
 
 async def test_main_bot_upload_without_shop_has_no_sell_hint(env):
@@ -205,7 +205,7 @@ async def test_pasting_own_link_opens_it_instead_of_new_link(env):
     async with SessionLocal() as s:
         c = await s.scalar(select(Content).order_by(Content.id.desc()))
     env.tg.clear()
-    await env.feed(env.main, message(STRANGER, f"https://t.me/Uploadfly_Bot?start={c.code}"))
+    await env.feed(env.main, message(STRANGER, f"https://ble.ir/Uploadfly_Bot?start={c.code}"))
     assert env.tg.sent(MAIN_ID, "SendPhoto")[0]["photo"] == c.file_id
     assert "لینک ساخته شد" not in env.tg.texts(MAIN_ID)
     async with SessionLocal() as s:
@@ -213,7 +213,7 @@ async def test_pasting_own_link_opens_it_instead_of_new_link(env):
 
 
 async def test_pasting_other_bots_link_is_saved_as_text(env):
-    await env.feed(env.main, message(BUYER, "https://t.me/someotherbot?start=abc"))
+    await env.feed(env.main, message(BUYER, "https://ble.ir/someotherbot?start=abc"))
     assert "لینک ساخته شد" in env.tg.texts(MAIN_ID)
 
 
@@ -226,34 +226,34 @@ async def test_pasting_paid_link_in_shop_shows_offer(env):
 async def test_pasting_shop_link_in_main_bot_offers_to_open_it(env):
     """باگ از تست صاحب پروژه: لینک ربات فروشگاه در ربات اصلی، لینک متنی جدید می‌ساخت."""
     c = await make_product(env, price=10)
-    await env.feed(env.main, message(BUYER, f"https://t.me/bot{SHOP_ID}?start={c.code}"))
+    await env.feed(env.main, message(BUYER, f"https://ble.ir/bot{SHOP_ID}?start={c.code}"))
     assert "لینک ساخته شد" not in env.tg.texts(MAIN_ID)
     urls = [b.get("url") for b in env.tg.buttons(MAIN_ID)]
-    assert f"https://t.me/bot{SHOP_ID}?start={c.code}" in urls
+    assert f"https://ble.ir/bot{SHOP_ID}?start={c.code}" in urls
     async with SessionLocal() as s:
         assert len((await s.scalars(select(Content).where(Content.bot_id == MAIN_ID))).all()) == 0
 
 
 async def test_pasting_main_link_in_shop_offers_to_open_it(env):
-    await env.feed(env.shop, message(OWNER, "https://t.me/Uploadfly_Bot?start=abc123"))
-    assert any(b.get("url") == "https://t.me/Uploadfly_Bot?start=abc123" for b in env.tg.buttons(SHOP_ID))
+    await env.feed(env.shop, message(OWNER, "https://ble.ir/Uploadfly_Bot?start=abc123"))
+    assert any(b.get("url") == "https://ble.ir/Uploadfly_Bot?start=abc123" for b in env.tg.buttons(SHOP_ID))
     async with SessionLocal() as s:
         assert (await s.scalar(select(Content))) is None
 
 
 async def test_pasting_bot_links_without_code(env):
     """از تست صاحب پروژه: لینک فروشگاه با start خالی یا بدون start هم باید شناخته شود."""
-    for text in (f"https://t.me/bot{SHOP_ID}?start=", f"t.me/bot{SHOP_ID}", f"https://t.me/bot{SHOP_ID}/"):
+    for text in (f"https://ble.ir/bot{SHOP_ID}?start=", f"t.me/bot{SHOP_ID}", f"https://ble.ir/bot{SHOP_ID}/"):
         env.tg.clear()
         await env.feed(env.main, message(BUYER, text))
-        assert [b.get("url") for b in env.tg.buttons(MAIN_ID)] == [f"https://t.me/bot{SHOP_ID}"], text
+        assert [b.get("url") for b in env.tg.buttons(MAIN_ID)] == [f"https://ble.ir/bot{SHOP_ID}"], text
     env.tg.clear()
-    await env.feed(env.main, message(BUYER, "https://t.me/Uploadfly_Bot?start="))   # لینک خالی خود ربات = /start
+    await env.feed(env.main, message(BUYER, "https://ble.ir/Uploadfly_Bot?start="))   # لینک خالی خود ربات = /start
     assert "خوش اومدی" in env.tg.texts(MAIN_ID)
     async with SessionLocal() as s:
         assert (await s.scalar(select(Content))) is None
     env.tg.clear()
-    await env.feed(env.main, message(BUYER, "https://t.me/durov"))                   # کانال/ربات غریبه: متن عادی
+    await env.feed(env.main, message(BUYER, "https://ble.ir/durov"))                   # کانال/ربات غریبه: متن عادی
     assert "لینک ساخته شد" in env.tg.texts(MAIN_ID)
 
 
@@ -358,7 +358,7 @@ async def test_user_source_tracking(env):
     assert "منبع کاربران" in text and "🔗 insta_ali: 1 · 0 · 0 · 0" in text and "لینک رایگان: 1" in text
     env.tg.clear()
     await env.feed(env.main, message(OWNER, "/srclink Insta_Ali"))
-    assert "https://t.me/Uploadfly_Bot?start=src_insta_ali" in env.tg.texts(MAIN_ID)
+    assert "https://ble.ir/Uploadfly_Bot?start=src_insta_ali" in env.tg.texts(MAIN_ID)
     env.tg.clear()
     await env.feed(env.main, message(BUYER, "/srclink x"))                       # فقط مدیر
     assert "start=src_x" not in env.tg.texts(MAIN_ID)

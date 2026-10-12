@@ -8,6 +8,7 @@ import html
 import json
 import logging
 import secrets
+import string
 from datetime import datetime, timedelta, timezone
 
 from aiogram import Bot
@@ -42,15 +43,18 @@ def naive(dt: datetime | None) -> datetime | None:
     return dt.astimezone(timezone.utc).replace(tzinfo=None) if dt and dt.tzinfo else dt
 
 
+CODE_ALPHABET = string.ascii_letters + string.digits
+
+
 async def new_code(session: AsyncSession) -> str:
     while True:
-        code = secrets.token_urlsafe(6)
+        code = "".join(secrets.choice(CODE_ALPHABET) for _ in range(9))  # بدون _ و - (در Markdown بله معنی دارند)
         if not await session.scalar(select(Showcase.id).where(Showcase.code == code)):
             return code
 
 
 def showcase_link(sc: Showcase, bot_username: str) -> str:
-    return f"https://t.me/{bot_username}?start=sc_{sc.code}"
+    return f"https://ble.ir/{bot_username}?start=sc_{sc.code}"
 
 
 async def active_membership(session: AsyncSession, showcase_id: int, user_id: int) -> Membership | None:

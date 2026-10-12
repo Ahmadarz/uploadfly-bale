@@ -74,10 +74,10 @@ async def test_look_theme_cover_logo_and_cleanup(env, client):  # noqa: F811
 
 
 async def test_qr_only_for_telegram_links(env, client):  # noqa: F811
-    r = await client.get("/api/qr", params={"text": "https://t.me/bot?start=sc_abc"}, headers=as_user(BUYER))
+    r = await client.get("/api/qr", params={"text": "https://ble.ir/bot?start=sc_abc"}, headers=as_user(BUYER))
     rows = (await r.json())["rows"]
     assert r.status == 200 and len(rows) == len(rows[0]) >= 21 and set("".join(rows)) <= {"0", "1"}
-    for bad in ("https://evil.example", "javascript:alert(1)", "https://t.me/" + "a" * 300):
+    for bad in ("https://evil.example", "javascript:alert(1)", "https://ble.ir/" + "a" * 300):
         assert (await client.get("/api/qr", params={"text": bad}, headers=as_user(BUYER))).status == 400
 
 
@@ -140,7 +140,7 @@ async def test_style_and_social_links(env, client):  # noqa: F811
                 [{"kind": "instagram", "url": "https://instagram.com.evil.com/x"}],
                 [{"kind": "website", "url": "javascript:alert(1)"}], [{"kind": "website", "url": "http://plain.com"}],
                 [{"kind": "website", "url": "https://user:pw@site.com"}], [{"kind": "website", "url": 'https://a.com/"><img'}],
-                [{"kind": "telegram", "url": "https://t.me/a"}, {"kind": "telegram", "url": "https://t.me/b"}],
+                [{"kind": "telegram", "url": "https://ble.ir/a"}, {"kind": "telegram", "url": "https://ble.ir/b"}],
                 [{"kind": "mastodon", "url": "https://m.social/x"}], {"kind": "x"}, "x",
                 [{"kind": "website", "url": "https://" + "a" * 300 + ".com"}]):
         assert (await client.patch("/api/look", headers=owner(), json={"links": bad})).status == 400, bad

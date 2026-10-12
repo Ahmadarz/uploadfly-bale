@@ -36,14 +36,14 @@ def invoice_args(content: Content, lang: str) -> dict:
 
 async def build_link(bot: Bot, code: str) -> str:
     me = await bot.me()
-    return f"https://t.me/{me.username}?start={code}"
+    return f"https://ble.ir/{me.username}?start={code}"
 
 
 def link_keyboard(link: str, lang: str) -> InlineKeyboardMarkup:
     t = T(lang)
     return InlineKeyboardMarkup(inline_keyboard=[[
         InlineKeyboardButton(text=t["btn_copy"], copy_text=CopyTextButton(text=link)),
-        InlineKeyboardButton(text=t["btn_share"], url="https://t.me/share/url?url=" + quote(link, safe="")),
+        InlineKeyboardButton(text=t["btn_share"], url="https://ble.ir/share/url?url=" + quote(link, safe="")),
     ]])
 
 

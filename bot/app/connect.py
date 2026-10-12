@@ -37,7 +37,7 @@ def shop_button(t: dict) -> InlineKeyboardMarkup:
 def create_bot_link(main_username: str, user: User) -> str:
     """لینک «ساخت ربات» خود تلگرام (Managed Bots، Bot API 9.6): فروشنده فقط اسم می‌نویسد و Create می‌زند."""
     base = re.sub(r"[^A-Za-z0-9_]", "", user.username or "") or f"uf{user.id}"
-    return f"https://t.me/newbot/{main_username}/{base[:22]}_shop_bot"
+    return f"https://ble.ir/newbot/{main_username}/{base[:22]}_shop_bot"
 
 
 def create_shop_markup(t: dict, main_username: str, user: User) -> InlineKeyboardMarkup:
@@ -167,7 +167,7 @@ async def managed_bot_event(event: ManagedBotUpdated, session: AsyncSession, db_
                 await seller_bot.set_my_description(T(code)["shop_description"].format(main=main), language_code=code)
         except Exception:
             log.warning("Could not set description of managed bot %s", new_bot.id)
-    rows = [[InlineKeyboardButton(text=t["btn_upload_first"], url=f"https://t.me/{new_bot.username}?start=upload")]]
+    rows = [[InlineKeyboardButton(text=t["btn_upload_first"], url=f"https://ble.ir/{new_bot.username}?start=upload")]]
     if webapp_url:
         rows.append([InlineKeyboardButton(text=t["btn_open_dashboard"], web_app=WebAppInfo(url=webapp_url))])
     await bot.send_message(db_user.id, t["managed_connected"].format(bot=new_bot.username),

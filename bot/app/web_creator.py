@@ -26,9 +26,9 @@ async def creator_json(session, seller: Seller, user: User, main_username: str) 
             "bio_max": creator.BIO_MAX, "welcome_max": creator.WELCOME_MAX,
             "followers": view["followers"], "counts": view["counts"],
             "earnings": await creator.earnings(session, seller.bot_id),
-            "referral": {"link": f"https://t.me/{main_username}?start=ref_{user.id}", "invited": invited,
+            "referral": {"link": f"https://ble.ir/{main_username}?start=ref_{user.id}", "invited": invited,
                          "shops": invited_shops},
-            "broadcast_link": f"https://t.me/{seller.bot_username}?start=broadcast",
+            "broadcast_link": f"https://ble.ir/{seller.bot_username}?start=broadcast",
             "broadcasts_left": max(0, creator.BROADCASTS_PER_DAY - await creator.broadcasts_today(session, seller.bot_id))}
 
 
@@ -244,7 +244,7 @@ async def api_store_dm(request: web.Request) -> web.Response:
     bot = request.app["manager"].get(seller.bot_id)
     if bot is None:
         return error("shop_offline", 503)
-    chat = f"https://t.me/{seller.bot_username}"
+    chat = f"https://ble.ir/{seller.bot_username}"
     name = html.escape((owner.first_name if owner else "") or f"@{seller.bot_username}")
     try:
         await bot.send_message(user.id, T(user.language)["dm_prompt"].format(name=name))

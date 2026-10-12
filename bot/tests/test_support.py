@@ -18,7 +18,7 @@ async def test_support_command_with_contact(env, monkeypatch):
     await env.feed(env.main, message(BUYER, "/support"))
     text, buttons = env.tg.texts(MAIN_ID), env.tg.buttons(MAIN_ID)
     assert "help@example.com" in text and str(BUYER) in text
-    assert any(b.get("url") == "https://t.me/UploadFlySupport" for b in buttons)
+    assert any(b.get("url") == "https://ble.ir/UploadFlySupport" for b in buttons)
     assert any(b.get("web_app", {}).get("url", "").endswith("/?page=support") for b in buttons)
     env.tg.clear()
     await env.feed(env.main, message(BUYER, "/start support"))           # از سایت یا ربات فروشگاه

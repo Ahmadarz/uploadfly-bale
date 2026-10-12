@@ -95,7 +95,7 @@ class MockSession(BaseSession):
         if name == "GetFile":
             return File(file_id=params["file_id"], file_unique_id="u", file_path=f"files/{params['file_id']}.jpg")
         if name == "CreateInvoiceLink":
-            return "https://t.me/$test_invoice"
+            return "https://ble.ir/$test_invoice"
         if name == "GetMyStarBalance":
             return StarAmount(amount=self.star_balance)
         if name == "GetManagedBotToken":

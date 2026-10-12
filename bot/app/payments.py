@@ -422,7 +422,7 @@ async def report_reason_cb(callback: CallbackQuery, session: AsyncSession, db_us
         pass
     if reason == "forbidden":  # محتوای ممنوع (مثلاً سوءاستفاده از کودکان) منتظر مرور مدیر نمی‌ماند
         content = await session.get(Content, purchase.content_id)
-        link = f"https://t.me/{seller.bot_username}?start={content.code}"
+        link = f"https://ble.ir/{seller.bot_username}?start={content.code}"
         main_bot = manager.get(main_bot_id)
         for admin_id in settings.admin_ids if main_bot else ():
             try:

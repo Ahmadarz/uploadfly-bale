@@ -1,6 +1,7 @@
 import html
 import re
 import secrets
+import string
 from urllib.parse import quote
 
 from aiogram import Bot, F, Router
@@ -27,17 +28,20 @@ router.message.filter(F.chat.type == "private")
 
 
 
-# لینک یک ربات: t.me/Bot ، t.me/Bot?start= ، t.me/Bot?start=CODE (کد اختیاری)
-OWN_LINK = re.compile(r"(?:https?://)?(?:t\.me|telegram\.me)/(\w+)/?(?:\?start=([\w-]*))?", re.IGNORECASE)
+# لینک یک بازو: ble.ir/Bot ، ble.ir/Bot?start= ، ble.ir/Bot?start=CODE (کد اختیاری)
+OWN_LINK = re.compile(r"(?:https?://)?(?:ble\.ir|t\.me)/(\w+)/?(?:\?start=([\w-]*))?", re.IGNORECASE)
 
 
 class Pricing(StatesGroup):
     waiting_price = State()
 
 
+CODE_ALPHABET = string.ascii_letters + string.digits
+
+
 async def new_code(session: AsyncSession) -> str:
     while True:
-        code = secrets.token_urlsafe(6)  # حدود ۸ کاراکتر، قابل حدس نیست
+        code = "".join(secrets.choice(CODE_ALPHABET) for _ in range(9))  # بدون _ و - (در Markdown بله معنی دارند)
         exists = await session.scalar(select(Content.id).where(Content.code == code))
         if not exists:
             return code
@@ -233,9 +237,9 @@ async def support_cmd(message: Message, db_user: User, main_username: str, selle
     if webapp_url and seller is None:  # Mini App از ربات اصلی باز می‌شود
         rows.append([InlineKeyboardButton(text=t["btn_support_faq"], web_app=WebAppInfo(url=f"{webapp_url}/?page=support"))])
     elif seller is not None:
-        rows.append([InlineKeyboardButton(text=t["btn_support_faq"], url=f"https://t.me/{main_username}?start=support")])
+        rows.append([InlineKeyboardButton(text=t["btn_support_faq"], url=f"https://ble.ir/{main_username}?start=support")])
     if settings.support_username:
-        rows.append([InlineKeyboardButton(text=t["btn_support_chat"], url=f"https://t.me/{settings.support_username}")])
+        rows.append([InlineKeyboardButton(text=t["btn_support_chat"], url=f"https://ble.ir/{settings.support_username}")])
     await message.answer(t["support_text"].format(email=email, id=db_user.id),
                          reply_markup=InlineKeyboardMarkup(inline_keyboard=rows) if rows else None)
 
@@ -397,7 +401,7 @@ async def save_content(message: Message, session: AsyncSession, db_user: User, b
         is_ours = target == main_username.lower() or await session.scalar(select(Seller.id).where(
             func.lower(Seller.bot_username) == target, Seller.is_active.is_(True)))
         if is_ours:
-            url = f"https://t.me/{m.group(1)}" + (f"?start={code}" if code else "")
+            url = f"https://ble.ir/{m.group(1)}" + (f"?start={code}" if code else "")
             await message.reply(t["link_elsewhere"].format(bot=m.group(1)), reply_markup=InlineKeyboardMarkup(
                 inline_keyboard=[[InlineKeyboardButton(text=t["btn_open_link"], url=url)]]))
             return
@@ -427,7 +431,7 @@ async def save_content(message: Message, session: AsyncSession, db_user: User, b
         if own_shop:  # فروشنده اشتباهی در ربات اصلی آپلود کرده؛ راه فروش را نشانش بده
             text += "\n\n" + t["sell_hint"].format(bot=own_shop.bot_username)
             markup.inline_keyboard.append([InlineKeyboardButton(
-                text=t["btn_sell_in_shop"], url=f"https://t.me/{own_shop.bot_username}?start=upload")])
+                text=t["btn_sell_in_shop"], url=f"https://ble.ir/{own_shop.bot_username}?start=upload")])
         await message.reply(text, reply_markup=markup)
     else:
         await state.clear()

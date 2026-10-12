@@ -67,7 +67,7 @@ async def test_store_lists_only_published_products(env, client):
 async def test_buy_in_mini_app_then_show_in_chat(env, client):
     c = await make_product(env, price=10)
     r = await (await client.post(f"/api/store/{SHOP_ID}/invoice/{c.id}", headers=as_user(BUYER), json={})).json()
-    assert r["invoice"].startswith("https://t.me/$")
+    assert r["invoice"].startswith("https://ble.ir/$")
     link = env.tg.sent(SHOP_ID, "CreateInvoiceLink")[0]
     assert link["currency"] == "XTR" and link["payload"] == f"c:{c.id}"
 
@@ -80,7 +80,7 @@ async def test_buy_in_mini_app_then_show_in_chat(env, client):
     assert data["items"][0]["bought"] and not data["items"][0]["opened"]
 
     r = await client.post(f"/api/store/{SHOP_ID}/open/{c.id}", headers=as_user(BUYER))
-    assert r.status == 200 and (await r.json())["chat"] == f"https://t.me/bot{SHOP_ID}"
+    assert r.status == 200 and (await r.json())["chat"] == f"https://ble.ir/bot{SHOP_ID}"
     sent = env.tg.sent(SHOP_ID, "SendPhoto")
     assert sent[-1]["chat_id"] == BUYER and sent[-1]["photo"] == c.file_id and sent[-1]["protect_content"]
 
@@ -102,7 +102,7 @@ async def test_refund_in_mini_app_before_viewing(env, client):
 async def test_free_and_owner_items_open_in_chat_without_invoice(env, client):
     free = await make_product(env, price=0)
     r = await (await client.post(f"/api/store/{SHOP_ID}/invoice/{free.id}", headers=as_user(BUYER), json={})).json()
-    assert r == {"open": f"https://t.me/bot{SHOP_ID}?start={free.code}"}
+    assert r == {"open": f"https://ble.ir/bot{SHOP_ID}?start={free.code}"}
     paid = await make_product(env, price=7)
     r = await (await client.post(f"/api/store/{SHOP_ID}/invoice/{paid.id}", headers=as_user(OWNER), json={})).json()
     assert "open" in r and env.tg.sent(SHOP_ID, "CreateInvoiceLink") == []
@@ -210,7 +210,7 @@ async def test_my_purchases_are_private(env, client):
     await pay(env, c, buyer=BUYER, charge="pp-1")
     mine = (await (await client.get("/api/purchases", headers=as_user(BUYER, via_shop=False))).json())["items"]
     assert len(mine) == 1 and mine[0]["title"] == "خرید من" and mine[0]["opened"] is False
-    assert mine[0]["link"] == f"https://t.me/bot{SHOP_ID}?start={c.code}"
+    assert mine[0]["link"] == f"https://ble.ir/bot{SHOP_ID}?start={c.code}"
     others = (await (await client.get("/api/purchases", headers=as_user(STRANGER, via_shop=False))).json())["items"]
     assert others == []
 
@@ -226,7 +226,7 @@ async def test_disconnect_shop_from_profile(env, client):
     assert (await client.post("/api/shop/disconnect", headers=as_user(STRANGER, via_shop=False))).status == 404
     assert (await client.post("/api/shop/disconnect", headers=as_user(OWNER, via_shop=False))).status == 200
     me = await (await client.get("/api/me", headers=as_user(OWNER, via_shop=False))).json()
-    assert me["shop"] is None and me["create_link"].startswith("https://t.me/newbot/Uploadfly_Bot/")
+    assert me["shop"] is None and me["create_link"].startswith("https://ble.ir/newbot/Uploadfly_Bot/")
 
 
 async def test_index_works_without_logo(client, monkeypatch, tmp_path):
@@ -313,7 +313,7 @@ async def test_free_links_in_mini_app(env, client):
     h = as_user(BUYER, via_shop=False)
     items = (await (await client.get("/api/links", headers=h)).json())["items"]
     assert [i["kind"] for i in items] == ["text", "photo"]
-    assert items[1]["link"].startswith("https://t.me/Uploadfly_Bot?start=") and items[0]["text"] == "یک متن رایگان"
+    assert items[1]["link"].startswith("https://ble.ir/Uploadfly_Bot?start=") and items[0]["text"] == "یک متن رایگان"
     photo_id = items[1]["id"]
     r = await client.get(f"/api/links/{photo_id}/thumb", headers=h)
     assert r.status == 200 and r.headers["Content-Type"] == "image/jpeg"

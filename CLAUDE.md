@@ -1,4 +1,39 @@
-# UploadFly — project context for Claude Code
+# UploadFly for Bale — project context for Claude Code
+
+> **This repository is the Bale (بله) version** (owner decision 2026-10-12): a separate product for Iran, in its own repo
+> (`uploadfly-bale`), with no link to the Telegram repo or its server. Everything below the line "Original Telegram
+> context" describes the code this port started from; treat Telegram-only parts as *not yet ported*.
+
+## Bale port: facts and decisions
+- Owner's PC is Windows: project at `E:/cloud/uploadfly-bale`, venv at `.venv/Scripts/python.exe`, secrets in `bot/.env`.
+  Tests (PowerShell): `$env:PYTHONUTF8='1'; .venv/Scripts/python.exe -m pytest -q` (without UTF-8 mode some tests fail
+  on cp1252). No ffmpeg, Docker, cloudflared or `gh` here yet. Test bot on Bale: `@uploadflybot`.
+- Bale Bot API = Telegram-like at `https://tapi.bale.ai` (docs: docs.bale.ai, docs.bale.ai/miniapp). aiogram works against
+  it through `app/bale.py` (`make_bale_bot`): custom API server + a request middleware that converts the app's HTML texts
+  to Bale Markdown and skips methods Bale lacks. Keep writing texts as HTML; never add `parse_mode`.
+- Verified live on 2026-10-12:
+  - Formatting: no HTML. `*bold*`, `_italic_`, `[text](url)`, triple-backtick block work. Single backticks and backslash
+    escapes do NOT work. `_` and `*` inside ordinary words are left alone.
+  - Works: inline buttons (callback, url, copy_text, web_app), edit/delete message, `setMyCommands` (also with scope and
+    language_code), deep links `ble.ir/<bot>?start=<param>`, `sendInvoice`/`createInvoiceLink` (currency `IRR`, amounts in
+    rials, `provider_token` = wallet token per bot from Bale's @botfather; test token `WALLET-TEST-1111111111111111`),
+    `pre_checkout_query`, `successful_payment`, `inquireTransaction`.
+  - Missing: `protect_content` (accepted but ignored), `setMyDescription`/`setMyShortDescription`, `setChatMenuButton`,
+    `getUserProfilePhotos`, `sendVideoNote`, Stars, subscriptions, managed bots (no bot creation by API).
+  - `refundStarPayment` exists as a handler but returned 500 on a test-token payment; real refunds are unverified.
+  - `editMessageText` returns `message_id: 0`; `successful_payment` messages also have `message_id: 0`.
+- Decisions (owner, 2026-10-12):
+  1. **Money goes straight to the seller**: each seller creates their own bot in Bale's @botfather and gives us the bot
+     token and the wallet token (guided, manual; Bale cannot create bots by API). We never hold sellers' money.
+  2. No forward lock exists on Bale; the owner accepts this. Planned mitigation: show purchased content inside the Mini
+     App instead of sending it to chat (works up to the 20 MB bot download limit).
+  3. Link codes are letters and digits only.
+- Port roadmap: [x] 1. main bot on Bale → free links (awaiting the owner's test). [ ] 2. texts rewritten for Bale/rial
+  (no Telegram, no Stars). [ ] 3. seller's own bot + wallet token, rial prices, purchase flow. [ ] 4. Mini App on
+  `Bale.WebApp` (needs an HTTPS address). [ ] 5. in-app viewer. [ ] 6. server in Iran + website.
+
+---
+# Original Telegram context
 
 ## Working with the owner
 - The owner has ~10 years in IT but **no programming knowledge**. You write the code; explain what you did and what they must do in **simple Persian (Farsi)**, step by step.

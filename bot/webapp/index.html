@@ -5,7 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
   <meta name="color-scheme" content="light dark">
   <title>UploadFly</title>
-  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script src="/static/bale-sdk.js"></script>
+  <script src="/static/bale.js"></script>
   <link rel="stylesheet" href="/static/tokens.css">
   <link rel="stylesheet" href="/static/app.css">
 </head>
@@ -159,7 +160,7 @@
           <div class="hero-top">
             <div class="hero-balance">
               <span class="hero-label" data-i18n="balance"></span>
-              <p class="balance num"><span id="st-balance">0</span><svg class="star"><use href="#i-star"/></svg></p>
+              <p class="balance num"><span id="st-balance">0</span><span class="cur">تومان</span></p>
               <span id="st-withdraw" class="hero-sub"></span>
             </div>
             <svg class="ring" viewBox="0 0 100 100" aria-hidden="true">
@@ -169,8 +170,8 @@
             </svg>
           </div>
           <div class="hero-stats">
-            <div><span data-i18n="today"></span><b class="num"><span id="st-today-sum">0</span><svg class="star"><use href="#i-star"/></svg></b><small id="st-today-n"></small></div>
-            <div><span data-i18n="total"></span><b class="num"><span id="st-total-sum">0</span><svg class="star"><use href="#i-star"/></svg></b><small id="st-total-n"></small></div>
+            <div><span data-i18n="today"></span><b class="num"><span id="st-today-sum">0</span><span class="cur">تومان</span></b><small id="st-today-n"></small></div>
+            <div><span data-i18n="total"></span><b class="num"><span id="st-total-sum">0</span><span class="cur">تومان</span></b><small id="st-total-n"></small></div>
             <div><span data-i18n="links"></span><b class="num" id="st-links">0</b><small>&nbsp;</small></div>
           </div>
         </div>
@@ -291,7 +292,7 @@
         <div class="hero-top">
           <div class="hero-balance">
             <span class="hero-label" data-i18n="balance"></span>
-            <p class="balance num"><span id="w-balance">0</span><svg class="star"><use href="#i-star"/></svg></p>
+            <p class="balance num"><span id="w-balance">0</span><span class="cur">تومان</span></p>
             <span id="w-sub" class="hero-sub"></span>
           </div>
           <svg class="ring" viewBox="0 0 100 100" aria-hidden="true">
@@ -301,8 +302,8 @@
           </svg>
         </div>
         <div class="hero-stats two">
-          <div><span data-i18n="wallet_available"></span><b class="num"><span id="w-available">0</span><svg class="star"><use href="#i-star"/></svg></b><small data-i18n="wallet_available_hint"></small></div>
-          <div><span data-i18n="wallet_pending"></span><b class="num"><span id="w-pending">0</span><svg class="star"><use href="#i-star"/></svg></b><small id="w-unlock"></small></div>
+          <div><span data-i18n="wallet_available"></span><b class="num"><span id="w-available">0</span><span class="cur">تومان</span></b><small data-i18n="wallet_available_hint"></small></div>
+          <div><span data-i18n="wallet_pending"></span><b class="num"><span id="w-pending">0</span><span class="cur">تومان</span></b><small id="w-unlock"></small></div>
         </div>
       </div>
 
@@ -317,9 +318,9 @@
 
       <h2 class="section-title" data-i18n="cr_earnings"></h2>
       <div class="card earn-card">
-        <div class="earn-row"><span class="kicon sm" style="--k: var(--k-photo); --k-soft: var(--k-photo-soft)"><svg><use href="#i-lock"/></svg></span><span data-i18n="cr_earn_sales"></span><b class="num"><span id="we-sales">0</span> ★</b><small id="we-sales-m" class="muted"></small></div>
-        <div class="earn-row"><span class="kicon sm" style="--k: var(--color-accent); --k-soft: var(--color-accent-soft)"><svg><use href="#i-calendar"/></svg></span><span data-i18n="cr_earn_subs"></span><b class="num"><span id="we-subs">0</span> ★</b><small id="we-subs-m" class="muted"></small></div>
-        <div class="earn-row"><span class="kicon sm" style="--k: var(--color-star); --k-soft: var(--color-star-soft)"><svg><use href="#i-heart"/></svg></span><span data-i18n="cr_earn_tips"></span><b class="num"><span id="we-tips">0</span> ★</b><small id="we-tips-m" class="muted"></small></div>
+        <div class="earn-row"><span class="kicon sm" style="--k: var(--k-photo); --k-soft: var(--k-photo-soft)"><svg><use href="#i-lock"/></svg></span><span data-i18n="cr_earn_sales"></span><b class="num"><span id="we-sales">0</span><span class="cur">تومان</span></b><small id="we-sales-m" class="muted"></small></div>
+        <div class="earn-row"><span class="kicon sm" style="--k: var(--color-accent); --k-soft: var(--color-accent-soft)"><svg><use href="#i-calendar"/></svg></span><span data-i18n="cr_earn_subs"></span><b class="num"><span id="we-subs">0</span><span class="cur">تومان</span></b><small id="we-subs-m" class="muted"></small></div>
+        <div class="earn-row"><span class="kicon sm" style="--k: var(--color-star); --k-soft: var(--color-star-soft)"><svg><use href="#i-heart"/></svg></span><span data-i18n="cr_earn_tips"></span><b class="num"><span id="we-tips">0</span><span class="cur">تومان</span></b><small id="we-tips-m" class="muted"></small></div>
       </div>
 
       <div id="top-box" class="hidden">
@@ -338,7 +339,7 @@
       <div id="w-sales" class="card list"></div>
       <p id="w-sales-empty" class="muted small center hidden" data-i18n="wallet_no_sales"></p>
 
-      <h2 class="section-title" data-i18n="premium_title"></h2>
+      <h2 class="section-title hidden" data-i18n="premium_title"></h2>
       <p class="muted small section-hint" data-i18n="premium_hint"></p>
       <div id="w-premium" class="premium-row"></div>
 
@@ -370,7 +371,7 @@
           <p id="store-desc" class="store-desc hidden"></p>
           <div id="store-social" class="social-row hidden"></div>
           <div id="store-actions" class="store-actions hidden">
-            <button id="store-tip" class="btn-soft"><svg class="star"><use href="#i-star"/></svg><span data-i18n="tip_btn"></span></button>
+            <button id="store-tip" class="btn-soft"><svg><use href="#i-heart"/></svg><span data-i18n="tip_btn"></span></button>
             <button id="store-message" class="btn-soft"><svg><use href="#i-chat"/></svg><span data-i18n="message_btn"></span></button>
           </div>
           <div class="profile-stats">
@@ -384,7 +385,7 @@
             <button id="store-join" class="btn-accent wide join-btn"></button>
             <button id="store-trial" class="btn-soft wide hidden"><svg><use href="#i-gift"/></svg><span id="store-trial-text"></span></button>
             <div id="store-bundles" class="bundles hidden"></div>
-            <button id="join-stars-help" class="stars-help"><svg class="star"><use href="#i-star"/></svg><span data-i18n="stars_help_btn"></span></button>
+            <button id="join-stars-help" class="stars-help"><svg><use href="#i-wallet"/></svg><span data-i18n="stars_help_btn"></span></button>
           </div>
           <div id="store-member" class="member-box hidden">
             <span class="tag"><svg><use href="#i-check"/></svg><span data-i18n="sc_you_member"></span></span>
@@ -695,7 +696,7 @@
     <div id="ed-stats" class="ed-stats">
       <div><b id="ed-views" class="num">0</b><span data-i18n="views"></span></div>
       <div><b id="ed-sales" class="num">0</b><span data-i18n="sales_word"></span></div>
-      <div><b class="num gold"><span id="ed-revenue">0</span> ★</b><span data-i18n="revenue"></span></div>
+      <div><b class="num gold"><span id="ed-revenue">0</span><span class="cur">تومان</span></b><span data-i18n="revenue"></span></div>
       <div id="ed-reports-box" class="hidden"><b id="ed-reports" class="num red">0</b><span data-i18n="reports"></span></div>
     </div>
     <p id="ed-preview" class="quote hidden"></p>
@@ -711,8 +712,8 @@
     <div id="ed-chips" class="chips"></div>
     <p id="ed-cap" class="muted small"></p>
     <div class="price-input">
-      <input id="ed-price" type="number" inputmode="numeric" min="0" step="1" placeholder="0">
-      <svg class="star"><use href="#i-star"/></svg>
+      <input id="ed-price" type="number" inputmode="numeric" min="0" step="1000" placeholder="0">
+      <span class="cur">تومان</span>
     </div>
 
     <div class="date-row ed-date">
@@ -758,8 +759,8 @@
     <div id="sce-manage" class="sce-page">
       <div id="sce-stats" class="sce-stats hidden">
         <div><b id="sces-members" class="num">0</b><span data-i18n="sce_stat_members"></span></div>
-        <div><b class="num gold"><span id="sces-month">0</span> ★</b><span data-i18n="sce_stat_month"></span></div>
-        <div><b class="num"><span id="sces-total">0</span> ★</b><span data-i18n="sce_stat_total"></span></div>
+        <div><b class="num gold"><span id="sces-month">0</span><span class="cur">تومان</span></b><span data-i18n="sce_stat_month"></span></div>
+        <div><b class="num"><span id="sces-total">0</span><span class="cur">تومان</span></b><span data-i18n="sce_stat_total"></span></div>
       </div>
       <p id="sces-canceled" class="muted small center hidden"></p>
       <div id="sce-archived-note" class="card warn hidden" data-i18n="sce_archived_note"></div>
@@ -770,7 +771,7 @@
       </div>
       <div class="card list">
         <button class="row" data-go="name"><span class="kicon sm" style="--k: var(--k-document); --k-soft: var(--k-document-soft)"><svg><use href="#i-book"/></svg></span><span data-i18n="sce_row_name"></span><em id="sce-v-name" class="row-value"></em><svg class="chev"><use href="#i-chev"/></svg></button>
-        <button class="row" data-go="access"><span class="kicon sm" style="--k: var(--color-star); --k-soft: var(--color-star-soft)"><svg><use href="#i-star"/></svg></span><span data-i18n="sce_row_access"></span><em id="sce-v-access" class="row-value"></em><svg class="chev"><use href="#i-chev"/></svg></button>
+        <button class="row" data-go="access"><span class="kicon sm" style="--k: var(--color-star); --k-soft: var(--color-star-soft)"><svg><use href="#i-wallet"/></svg></span><span data-i18n="sce_row_access"></span><em id="sce-v-access" class="row-value"></em><svg class="chev"><use href="#i-chev"/></svg></button>
         <button class="row" data-go="items"><span class="kicon sm" style="--k: var(--k-photo); --k-soft: var(--k-photo-soft)"><svg><use href="#i-grid"/></svg></span><span data-i18n="sce_row_items"></span><em id="sce-v-items" class="row-value"></em><svg class="chev"><use href="#i-chev"/></svg></button>
         <button class="row" data-go="settings"><span class="kicon sm" style="--k: var(--k-voice); --k-soft: var(--k-voice-soft)"><svg><use href="#i-lock"/></svg></span><span data-i18n="sce_row_settings"></span><em id="sce-v-settings" class="row-value"></em><svg class="chev"><use href="#i-chev"/></svg></button>
       </div>
@@ -796,13 +797,13 @@
       <p class="wiz-q" data-i18n="sce_q_access"></p>
       <div id="sce-access" class="access-list">
         <button class="access-opt" data-a="free"><span class="kicon" style="--k: var(--color-success); --k-soft: var(--color-success-soft)"><svg><use href="#i-eye"/></svg></span><span class="ao-text"><b data-i18n="acc_free"></b><small data-i18n="acc_free_hint"></small></span><span class="ao-check"><svg><use href="#i-check"/></svg></span></button>
-        <button class="access-opt" data-a="once"><span class="kicon" style="--k: var(--color-star); --k-soft: var(--color-star-soft)"><svg><use href="#i-star"/></svg></span><span class="ao-text"><b data-i18n="acc_once"></b><small data-i18n="acc_once_hint"></small></span><span class="ao-check"><svg><use href="#i-check"/></svg></span></button>
+        <button class="access-opt" data-a="once"><span class="kicon" style="--k: var(--color-star); --k-soft: var(--color-star-soft)"><svg><use href="#i-wallet"/></svg></span><span class="ao-text"><b data-i18n="acc_once"></b><small data-i18n="acc_once_hint"></small></span><span class="ao-check"><svg><use href="#i-check"/></svg></span></button>
         <button class="access-opt" data-a="monthly"><span class="kicon" style="--k: var(--color-accent); --k-soft: var(--color-accent-soft)"><svg><use href="#i-calendar"/></svg></span><span class="ao-text"><b data-i18n="acc_monthly"></b><small data-i18n="acc_monthly_hint"></small></span><span class="ao-check"><svg><use href="#i-check"/></svg></span></button>
       </div>
       <div id="sce-price-box" class="hidden">
         <p class="wiz-sub" data-i18n="sce_price_q"></p>
         <div id="sce-chips" class="chips"></div>
-        <div class="price-input"><input id="sce-price" type="number" inputmode="numeric" min="1" step="1" placeholder="0"><svg class="star"><use href="#i-star"/></svg></div>
+        <div class="price-input"><input id="sce-price" type="number" inputmode="numeric" min="1000" step="1000" placeholder="0"><span class="cur">تومان</span></div>
         <p id="sce-cap" class="muted small"></p>
       </div>
       <div id="sce-monthly-box" class="hidden">
@@ -870,13 +871,13 @@
     <h2 id="buy-title" class="buy-title"></h2>
     <div class="buy-social">
       <button id="buy-like" class="like-btn"><svg><use href="#i-heart"/></svg><b id="buy-likes" class="num">0</b></button>
-      <button id="buy-tip" class="text-btn hidden"><svg class="star"><use href="#i-star"/></svg><span data-i18n="tip_btn"></span></button>
+      <button id="buy-tip" class="text-btn hidden"><svg><use href="#i-heart"/></svg><span data-i18n="tip_btn"></span></button>
     </div>
     <p id="buy-specs" class="muted small"></p>
     <p class="verified"><svg><use href="#i-shield"/></svg><span data-i18n="verified_specs"></span></p>
     <div id="buy-desc-box" class="quote hidden"><b data-i18n="seller_desc"></b><p id="buy-desc"></p></div>
     <p id="buy-snippet" class="quote hidden"></p>
-    <button id="buy-stars-help" class="stars-help hidden"><svg class="star"><use href="#i-star"/></svg><span data-i18n="stars_help_btn"></span></button>
+    <button id="buy-stars-help" class="stars-help hidden"><svg><use href="#i-wallet"/></svg><span data-i18n="stars_help_btn"></span></button>
     <ul class="buy-notes">
       <li id="buy-protect"></li>
       <li id="buy-sensitive" class="hidden" data-i18n="buy_sensitive"></li>
@@ -903,7 +904,7 @@
     <h2 class="sheet-title" data-i18n="tip_title"></h2>
     <p class="muted small" data-i18n="tip_hint"></p>
     <div id="tip-chips" class="chips"></div>
-    <div class="price-input"><input id="tip-amount" type="number" inputmode="numeric" min="1" step="1" placeholder="0"><svg class="star"><use href="#i-star"/></svg></div>
+    <div class="price-input"><input id="tip-amount" type="number" inputmode="numeric" min="1000" step="1000" placeholder="0"><span class="cur">تومان</span></div>
     <button id="tip-send" class="btn-accent wide"></button>
   </section>
 

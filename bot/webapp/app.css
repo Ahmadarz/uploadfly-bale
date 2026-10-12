@@ -963,3 +963,11 @@ p { margin: 0; }
 .banner-dots i.on { width: 20px; background: var(--color-accent); box-shadow: none; }
 @media (prefers-reduced-motion: reduce) { .banner-dots i, .banner-cta { transition: none; } }
 #creator-box .row-text small { white-space: normal; line-height: 1.5; }
+
+/* واحد پول کنار عددها (نسخه‌ی بله: تومان به‌جای آیکن ستاره) */
+.cur { font-size: .5em; font-weight: 600; margin-inline-start: .35em; opacity: .7; letter-spacing: 0; }
+.price-input .cur { font-size: 14px; opacity: .6; flex: none; }
+/* بله: حداقل برداشت و دوره‌ی انتظار نداریم، پس حلقه‌ی «تا برداشت» و خانه‌ی «در انتظار» نشان داده نمی‌شوند */
+.hero-card .ring { display: none; }
+.hero-stats.two > div:nth-child(2) { display: none; }
+.hero-stats.two { grid-template-columns: 1fr; }

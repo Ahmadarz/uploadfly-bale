@@ -192,8 +192,10 @@ async def start(message: Message, db_user: User, bot: Bot, seller: Seller | None
     name = html.escape(message.from_user.first_name or "")
     await set_user_menu(bot, db_user.id, db_user.language, message.from_user.language_code, seller is not None)
     if seller is None:
-        await message.answer(t["welcome"].format(name=name), reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
-            InlineKeyboardButton(text=t["btn_open_shop"], callback_data="shop:home")]]))
+        rows = [[InlineKeyboardButton(text=t["btn_open_shop"], callback_data="shop:home")]]
+        if webapp_url:  # بله دکمه‌ی منوی مینی‌اپ را از طریق برنامه نمی‌گذارد؛ ورودی مینی‌اپ همین دکمه است
+            rows.insert(0, [InlineKeyboardButton(text=t["btn_open_app"], web_app=WebAppInfo(url=webapp_url))])
+        await message.answer(t["welcome"].format(name=name), reply_markup=InlineKeyboardMarkup(inline_keyboard=rows))
     else:
         await send_store_button(message, db_user, seller, bot, webapp_url, main_username)
 

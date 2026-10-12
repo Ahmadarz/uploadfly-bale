@@ -412,3 +412,10 @@ async def test_without_refunds_content_is_delivered_right_after_payment(env, mon
         assert (await s.get(Purchase, purchase.id)).opened_at is not None
     await env.feed(env.shop, callback(BUYER, f"refund:{purchase.id}"))         # دکمه‌ی قدیمی/دست‌کاری‌شده
     assert not env.tg.sent(SHOP_ID, "RefundStarPayment")
+
+
+async def test_welcome_has_a_mini_app_button(env):
+    """بله دکمه‌ی منوی مینی‌اپ را از طریق API نمی‌گذارد؛ خوش‌آمد خودش دکمه‌ی مینی‌اپ دارد."""
+    await env.feed(env.main, message(STRANGER, "/start"))
+    urls = [b["web_app"]["url"] for b in env.tg.buttons(MAIN_ID) if b.get("web_app")]
+    assert urls == ["https://app.example"]

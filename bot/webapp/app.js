@@ -9,11 +9,7 @@ let storeFromHome = false;                    // ویترین از داخل دا
 
 // زبان‌ها؛ متن هر زبان در webapp/i18n/<lang>.json است (یک فایل برای هر زبان)
 const LANGS = {
-  fa: { name: "فارسی", dir: "rtl", locale: "fa-IR" },
-  ar: { name: "العربية", dir: "rtl", locale: "ar" },
-  en: { name: "English", dir: "ltr", locale: "en-US" },
-  ru: { name: "Русский", dir: "ltr", locale: "ru-RU" },
-  zh: { name: "中文", dir: "ltr", locale: "zh-CN" },
+  fa: { name: "فارسی", dir: "rtl", locale: "fa-IR" },   // نسخه‌ی بله فقط فارسی است
 };
 const ASSET_V = (document.querySelector('script[src*="/static/app.js"]')?.src.match(/v=(\d+)/) || [])[1] || "0";
 const dicts = {};
@@ -22,13 +18,15 @@ let lang = "fa";
 let me = null;
 // t("sales", 3) → «۳ فروش»: مقدارها به ترتیب جای {n}، {b}، … می‌نشینند
 // t("premium_confirm", { s: 1000, n: 3 }) → با نام؛ امن وقتی ترتیب جای خالی‌ها در زبان‌ها فرق دارد
+const num = (n) => (typeof n === "number" ? n.toLocaleString("en-US") : n);
+const toman = (n) => `${num(Number(n) || 0)} تومان`;
 const t = (key, ...args) => {
   let v = dicts[lang]?.[key] ?? dicts.en?.[key] ?? key;
   if (typeof v === "string" && args.length === 1 && args[0] && typeof args[0] === "object") {
-    return v.replace(/\{(\w+)\}/g, (m, name) => (name in args[0] ? args[0][name] : m));
+    return v.replace(/\{(\w+)\}/g, (m, name) => (name in args[0] ? num(args[0][name]) : m));
   }
   if (typeof v === "string" && args.length) {
-    [...new Set([...v.matchAll(/\{(\w+)\}/g)].map((m) => m[1]))].forEach((name, i) => { v = v.split(`{${name}}`).join(args[i]); });
+    [...new Set([...v.matchAll(/\{(\w+)\}/g)].map((m) => m[1]))].forEach((name, i) => { v = v.split(`{${name}}`).join(num(args[i])); });
   }
   return v;
 };
@@ -44,8 +42,8 @@ const errMsg = (code, ...args) => ((dicts[lang]?.[`err_${code}`] ?? dicts.en?.[`
 const haptic = (type) => { try { tg.HapticFeedback.notificationOccurred(type); } catch (e) { /* قدیمی */ } };
 
 async function applyLang(l) {
-  lang = LANGS[l] ? l : "en";
-  try { await Promise.all([loadDict(lang), loadDict("en")]); } catch (e) { /* بدون اینترنت: کلیدها نمایش داده می‌شوند */ }
+  lang = "fa";
+  try { await loadDict(lang); } catch (e) { /* بدون اینترنت: کلیدها نمایش داده می‌شوند */ }
   document.documentElement.lang = lang;
   document.documentElement.dir = LANGS[lang].dir;
   document.querySelectorAll("[data-i18n]").forEach((el) => { el.textContent = t(el.dataset.i18n); });
@@ -68,11 +66,11 @@ function applyTheme() {
 
 // شمارش عدد از ۰ تا مقدار نهایی (یک بار، کوتاه)
 function countUp(el, to) {
-  if (typeof to !== "number" || reducedMotion()) { el.textContent = to ?? "?"; return; }
+  if (typeof to !== "number" || reducedMotion()) { el.textContent = num(to) ?? "?"; return; }
   const start = performance.now(), dur = 700;
   const step = (now) => {
     const k = Math.min(1, (now - start) / dur), eased = 1 - Math.pow(1 - k, 3);
-    el.textContent = Math.round(to * eased);
+    el.textContent = num(Math.round(to * eased));
     if (k < 1) requestAnimationFrame(step);
   };
   requestAnimationFrame(step);
@@ -123,6 +121,15 @@ window.addEventListener("unhandledrejection", (e) => {
   if (r.status && r.status < 500) return;  // خطاهای عادی API (مثلاً «موجودی کافی نیست») باگ نیستند
   reportError(r.message || r, (r.stack || "").split("\n").slice(0, 3).join(" < "));
 });
+
+// بله لینک «اشتراک‌گذاری» مثل t.me/share ندارد: برگه‌ی اشتراک خود گوشی، و اگر نبود کپی لینک
+async function shareLink(link, text) {
+  tap();
+  try { if (navigator.share) { await navigator.share(text ? { text, url: link } : { url: link }); return; } }
+  catch (e) { if (e && e.name === "AbortError") return; }
+  try { await navigator.clipboard.writeText(link); } catch (e) { /* بدون دسترسی به کلیپ‌بورد */ }
+  haptic("success"); toast(t("copied"));
+}
 
 function openTelegram(url) {
   if (tg.openTelegramLink) tg.openTelegramLink(url); else window.location.href = url;
@@ -182,7 +189,7 @@ function renderTop(top) {
 }
 
 function renderRing(balance, min) {
-  const pct = Math.max(0, Math.min(100, Math.round(((balance || 0) / min) * 100)));
+  const pct = min > 0 ? Math.max(0, Math.min(100, Math.round(((balance || 0) / min) * 100))) : 100;
   $("ring-value").style.strokeDashoffset = String(251.3 * (1 - pct / 100));
   $("ring-text").textContent = `${pct}%`;
   $("st-withdraw").textContent = balance >= min ? t("withdraw_ready_short") : t("to_withdraw", min - (balance || 0));
@@ -204,10 +211,10 @@ function renderHome() {
   $("status-dot").classList.toggle("red", shop.suspended);
   $("suspended").classList.toggle("hidden", !shop.suspended);
   if (!renderHome.counted) { countUp($("st-balance"), shop.balance); renderHome.counted = true; }
-  else $("st-balance").textContent = shop.balance ?? "?";
-  $("st-today-sum").textContent = shop.today_sum;
+  else $("st-balance").textContent = num(shop.balance) ?? "?";
+  $("st-today-sum").textContent = num(shop.today_sum);
   $("st-today-n").textContent = t("sales", shop.today_n);
-  $("st-total-sum").textContent = shop.total_sum;
+  $("st-total-sum").textContent = num(shop.total_sum);
   $("st-total-n").textContent = t("sales", shop.total_n);
   $("st-links").textContent = shop.links;
   requestAnimationFrame(() => renderRing(shop.balance, me.withdraw_min));
@@ -274,7 +281,7 @@ function fillThumb(box, p) {
 function productName(p) { return p.title || p.name || t("kinds")[p.kind] || p.kind; }
 
 function priceChip(p) {
-  return p.price ? `<span class="price-chip">${p.price} ★</span>` : `<span class="price-chip free">${t("free")}</span>`;
+  return p.price ? `<span class="price-chip">${toman(p.price)}</span>` : `<span class="price-chip free">${t("free")}</span>`;
 }
 
 function renderProducts() {
@@ -340,7 +347,7 @@ function initProducts() {
     try { localStorage.setItem("uf_view", state.view); } catch (e) { /* حالت خصوصی */ }
     renderProducts();
   };
-  $("empty-upload").onclick = () => me.shop && openTelegram(`https://t.me/${me.shop.bot}?start=upload`);
+  $("empty-upload").onclick = () => me.shop && openTelegram(`https://ble.ir/${me.shop.bot}?start=upload`);
   $("product-search").oninput = (e) => { state.query = e.target.value; state.space === "free" ? renderLinks() : renderProducts(); };
   $("kind-filter").onclick = () => { tap(); state.kind = null; state.space === "free" ? renderLinks() : renderProducts(); };
   document.querySelectorAll(".space-tab").forEach((b) => {
@@ -350,9 +357,9 @@ function initProducts() {
       loadProducts().catch(() => toast(t("err_generic")));
     };
   });
-  $("links-upload").onclick = () => { tap(); openTelegram(`https://t.me/${me.main_bot}`); };
+  $("links-upload").onclick = () => { tap(); openTelegram(`https://ble.ir/${me.main_bot}`); };
   $("ls-copy").onclick = async () => { await copyText(state.link.link, $("ls-link")); };
-  $("ls-share").onclick = () => openTelegram(`https://t.me/share/url?url=${encodeURIComponent(state.link.link)}`);
+  $("ls-share").onclick = () => shareLink(state.link.link);
   $("ls-open").onclick = () => { tap(); openTelegram(state.link.link); };
   $("ls-disable").onclick = () => tg.showConfirm(t("link_disable_confirm"), async (ok) => {
     if (!ok) return;
@@ -449,8 +456,8 @@ function renderSceManage() {
   $("sce-stats").classList.toggle("hidden", !paid);
   $("sces-canceled").classList.toggle("hidden", !(paid && d.canceled));
   if (paid) {
-    $("sces-members").textContent = d.members; $("sces-month").textContent = d.month_revenue;
-    $("sces-total").textContent = d.revenue; $("sces-canceled").textContent = t("sce_canceled", d.canceled);
+    $("sces-members").textContent = d.members; $("sces-month").textContent = num(d.month_revenue);
+    $("sces-total").textContent = num(d.revenue); $("sces-canceled").textContent = t("sce_canceled", d.canceled);
   }
   $("sce-archived-note").classList.toggle("hidden", !d.archived);
   $("sce-link").textContent = d.link;
@@ -468,7 +475,7 @@ function renderSceAccess() {
   const cap = me.shop.price_cap, price = Math.floor(Number($("sce-price").value) || 0);
   $("sce-cap").textContent = t("price_cap_hint", cap);
   $("sce-chips").innerHTML = me.presets.filter((v) => v <= cap).map((v) =>
-    `<button class="chip ${v === price ? "active" : ""}" data-v="${v}">${v} ★</button>`).join("");
+    `<button class="chip ${v === price ? "active" : ""}" data-v="${v}">${toman(v)}</button>`).join("");
   $("sce-chips").querySelectorAll(".chip").forEach((c) => {
     c.onclick = () => { tap(); $("sce-price").value = c.dataset.v; renderSceAccess(); };
   });
@@ -484,11 +491,11 @@ function renderSceItems() {
     const on = scEd.picked.has(p.id), mf = scEd.picked.get(p.id);
     const seg = on && paid ? `<div class="seg" data-mf="${p.id}">
         <button data-v="1" class="${mf ? "active" : ""}">🎁 ${t("free_for_members")}</button>
-        <button data-v="0" class="${mf ? "" : "active"}">⭐ ${t("sc_item_paid", p.price)}</button></div>` : "";
+        <button data-v="0" class="${mf ? "" : "active"}">${t("sc_item_paid", p.price)}</button></div>` : "";
     return `<div class="pick-item"><div class="row ${on ? "on" : ""}" data-id="${p.id}">
       <span class="pick"><svg><use href="#i-check"/></svg></span>
       <div class="thumb" style="${kindStyle(p.kind)}">${iconSvg(p.kind)}</div>
-      <span class="purchase-meta"><b>${esc(p.title || t("kinds")[p.kind])}</b><small>${p.price ? `${p.price} ★` : t("free")}</small></span>
+      <span class="purchase-meta"><b>${esc(p.title || t("kinds")[p.kind])}</b><small>${p.price ? `${toman(p.price)}` : t("free")}</small></span>
     </div>${seg}</div>`;
   }).join("");
   $("sce-items").querySelectorAll(".row").forEach((r) => {
@@ -581,7 +588,7 @@ function initShowcaseEditor() {
   const copy = (node) => copyText(scEd.link, node).then(() => { toast(t("sc_bio_copied")); markBioCopied(); });
   $("sce-copy").onclick = () => copy($("sce-link"));
   $("sce-done-copy").onclick = () => copy($("sce-done-link"));
-  $("sce-share").onclick = () => openTelegram(`https://t.me/share/url?url=${encodeURIComponent(scEd.link)}`);
+  $("sce-share").onclick = () => shareLink(scEd.link);
   $("sce-story").onclick = () => { tap(); openStory(scEd.code); };
   $("sce-done-story").onclick = () => { tap(); openStory(scEd.code); };
   $("sce-look").onclick = async () => { tap(); const code = scEd.code; closeShowcaseEditor(); await openStore(me.shop.bot_id, true, code); openLookSheet(); };
@@ -712,7 +719,7 @@ function openEditor(p) {
   $("ed-specs").innerHTML = [t("kinds")[p.kind], humanSize(p.size), humanDuration(p.duration),
     p.width && p.height ? `${p.width}×${p.height}` : "", p.pages ? t("pages", p.pages) : ""]
     .filter(Boolean).map((x) => `<bdi>${esc(x)}</bdi>`).join(" · ");
-  $("ed-views").textContent = p.views; $("ed-sales").textContent = p.sales; $("ed-revenue").textContent = p.revenue;
+  $("ed-views").textContent = p.views; $("ed-sales").textContent = p.sales; $("ed-revenue").textContent = num(p.revenue);
   $("ed-reports").textContent = p.reports; $("ed-reports-box").classList.toggle("hidden", !p.reports);
   $("ed-preview").classList.toggle("hidden", !p.preview);
   $("ed-preview").textContent = p.preview ? `${t("preview_label")} ${p.preview}` : "";
@@ -721,7 +728,7 @@ function openEditor(p) {
   $("ed-cap").textContent = t("price_cap_hint", cap);
   $("ed-price").max = Math.max(cap, p.price);
   $("ed-chips").innerHTML = [0, ...me.presets.filter((v) => v <= cap)].map((v) =>
-    `<button class="chip" data-v="${v}">${v ? `${v} ★` : t("free")}</button>`).join("");
+    `<button class="chip" data-v="${v}">${v ? `${toman(v)}` : t("free")}</button>`).join("");
   $("ed-chips").querySelectorAll(".chip").forEach((c) => {
     c.onclick = () => { $("ed-price").value = c.dataset.v; tg.HapticFeedback?.selectionChanged(); syncEditor(); };
   });
@@ -819,7 +826,7 @@ function initEditor() {
   };
   $("overlay").onclick = overlayClick;
   $("ed-copy").onclick = copyLink;
-  $("ed-share").onclick = () => openTelegram(`https://t.me/share/url?url=${encodeURIComponent(state.current.link)}`);
+  $("ed-share").onclick = () => shareLink(state.current.link);
   $("ed-archive").onclick = toggleArchive;
   // دکمه‌های تلگرام بین ویرایشگر و ویترین مشترک‌اند؛ هر کدام فقط وقتی خودش باز است عمل می‌کند
   tg.MainButton.onClick(() => { if (state.current && !STORE) saveEditor(); });
@@ -901,7 +908,7 @@ function renderStore() {
   const others = [...(sc ? [{ code: null, title: t("sc_main"), access: "free" }] : []), ...(store.data.others || [])];
   $("store-others").classList.toggle("hidden", !others.length || !style.others);
   $("store-others-list").innerHTML = others.map((o) =>
-    `<button class="chip" data-code="${o.code || ""}">${esc(o.title)} ${o.access !== "free" ? `<span class="sc-badge ${o.access}">${o.price} ★</span>` : ""}</button>`).join("");
+    `<button class="chip" data-code="${o.code || ""}">${esc(o.title)} ${o.access !== "free" ? `<span class="sc-badge ${o.access}">${toman(o.price)}</span>` : ""}</button>`).join("");
   $("store-others-list").querySelectorAll(".chip").forEach((b) => {
     b.onclick = () => { tap(); SC = b.dataset.code || null; startStore(); };
   });
@@ -933,7 +940,7 @@ function renderStore() {
   const cta = (i) => i.locked ? `<span class="post-cta lock"><svg><use href="#i-lock"/></svg>${t("post_locked")}</span>`
     : i.unlocked ? `<span class="post-cta own"><svg><use href="#i-eye"/></svg>${t("free_for_members")}</span>`
     : i.bought ? `<span class="post-cta own"><svg><use href="#i-check"/></svg>${t("post_bought")}</span>`
-    : i.price ? `<span class="post-cta buy"><svg><use href="#i-star"/></svg>${t("post_unlock", i.price)}</span>`
+    : i.price ? `<span class="post-cta buy"><svg><use href="#i-lock"/></svg>${t("post_unlock", i.price)}</span>`
     : `<span class="post-cta"><svg><use href="#i-eye"/></svg>${t("get_free")}</span>`;
   const pin = (i) => (i.id === style.pinned ? `<span class="pin-badge"><svg><use href="#i-pin"/></svg>${t("pinned")}</span>` : "");
   const pinCls = (i) => (i.id === style.pinned ? " pinned" : "");
@@ -942,7 +949,7 @@ function renderStore() {
       const tag = i.locked ? `<span class="lk-tag lock"><svg><use href="#i-lock"/></svg></span>`
         : i.unlocked ? `<span class="lk-tag own">${t("free_for_members")}</span>`
         : i.bought ? `<span class="lk-tag own"><svg><use href="#i-check"/></svg></span>`
-        : `<span class="lk-tag">${i.price ? `${i.price} ★` : t("free")}</span>`;
+        : `<span class="lk-tag">${i.price ? `${toman(i.price)}` : t("free")}</span>`;
       return `
     <button class="lk-row${pinCls(i)}" data-id="${i.id}" style="animation-delay:${Math.min(n, 8) * 40}ms">
       <span class="lk-thumb"><span class="thumb skeleton"></span></span>
@@ -1188,7 +1195,7 @@ async function startStore() {
   });
   $("store-refund").onclick = refundMembership;
   $("store-renewal").onclick = toggleRenewal;
-  $("store-made").onclick = () => { tap(); openTelegram(`https://t.me/${store.data.main_bot}?start=src_made`); };
+  $("store-made").onclick = () => { tap(); openTelegram(`https://ble.ir/${store.data.main_bot}?start=src_made`); };
   $("store-look").onclick = () => { tap(); openLookSheet(); };
   $("buy-stars-help").onclick = openStarsSheet;
   $("join-stars-help").onclick = openStarsSheet;
@@ -1302,7 +1309,7 @@ function renderSocial(links) {
     b.onclick = () => {
       tap();
       const url = links[b.dataset.k].url;
-      if (/^https:\/\/t\.me\//.test(url)) openTelegram(url); else if (tg.openLink) tg.openLink(url); else window.open(url, "_blank", "noopener");
+      if (/^https:\/\/ble\.ir\//.test(url)) openTelegram(url); else if (tg.openLink) tg.openLink(url); else window.open(url, "_blank", "noopener");
     };
   });
 }
@@ -1645,10 +1652,10 @@ async function renderStart() {
   const shop = me.shop, card = $("start-card");
   if (!shop || (await storageGet(START_HIDE))) return card.classList.add("hidden");
   const products = Object.values(shop.kinds || {}).reduce((a, b) => a + b, 0);
-  const mainLink = `https://t.me/${shop.bot}?start=store`;
+  const mainLink = `https://ble.ir/${shop.bot}?start=store`;
   const steps = [
     { k: "shop", done: true },
-    { k: "product", done: products > 0, go: () => openTelegram(`https://t.me/${shop.bot}?start=upload`) },
+    { k: "product", done: products > 0, go: () => openTelegram(`https://ble.ir/${shop.bot}?start=upload`) },
     { k: "look", done: !!shop.has_look, go: async () => { await openStore(shop.bot_id, true); openLookSheet(); } },
     { k: "bio", done: !!(await storageGet(BIO_DONE)), go: () => copyText(mainLink, $("start-list")).then(() => { toast(t("sc_bio_copied")); markBioCopied(); }) },
     { k: "sale", done: shop.total_n > 0, go: () => openStory(null) },
@@ -1705,7 +1712,7 @@ async function openSupport() {
   $("contact-chat").classList.toggle("hidden", !sup.username);
   $("contact-email").classList.toggle("hidden", !sup.email);
   $("contact-soon").classList.toggle("hidden", !!(sup.username || sup.email));
-  $("contact-chat").onclick = () => { tap(); openTelegram(`https://t.me/${sup.username}`); };
+  $("contact-chat").onclick = () => { tap(); openTelegram(`https://ble.ir/${sup.username}`); };
   $("contact-email").onclick = () => {
     tap();
     const url = `mailto:${sup.email}?subject=${encodeURIComponent("UploadFly")}&body=${encodeURIComponent(`ID: ${tg.initDataUnsafe?.user?.id || ""}\n\n`)}`;
@@ -1741,13 +1748,13 @@ function renderProfile() {
   $("pf-name").textContent = me.name || "";
   $("pf-username").innerHTML = me.username ? `<bdi>@${esc(me.username)}</bdi>` : "";
   $("pf-lang-value").textContent = LANGS[lang].name;
-  $("pf-lang").onclick = () => { tap(); openLangSheet(); };
+  $("pf-lang").classList.add("hidden");  // بله: فقط فارسی
 
   $("pf-shop").classList.toggle("hidden", !me.shop);
   if (me.shop) {
     const shop = me.shop;
     $("pf-bot").innerHTML = `<bdi>@${esc(shop.bot)}</bdi>`;
-    $("pf-open-bot").onclick = () => { tap(); openTelegram(`https://t.me/${shop.bot}`); };
+    $("pf-open-bot").onclick = () => { tap(); openTelegram(`https://ble.ir/${shop.bot}`); };
     // همه‌ی ویترین‌ها (هر کدام با لینک بیو خودش) یک‌جا در خانه هستند
     $("pf-showcases").onclick = () => { tap(); goHomeShowcases(); };
     $("pf-withdraw").onclick = () => { tap(); openWallet(); };
@@ -1800,7 +1807,7 @@ function openVerify() {
   const bot = me?.shop?.bot;
   $("verify-step1").textContent = t("verify_step1", bot ? `@${bot}` : t("verify_your_bot"));
   $("verify-open").classList.toggle("hidden", !bot);
-  $("verify-open").onclick = () => { tap(); openTelegram(`https://t.me/${bot}`); };
+  $("verify-open").onclick = () => { tap(); openTelegram(`https://ble.ir/${bot}`); };
   openSmallSheet("verify-sheet");
 }
 function openFaq() {
@@ -1811,7 +1818,7 @@ function openFaq() {
 function initTrust() {
   document.querySelectorAll(".js-verify").forEach((b) => { b.onclick = openVerify; });
   document.querySelectorAll(".js-faq").forEach((b) => { b.onclick = openFaq; });
-  $("faq-tos").onclick = () => { tap(); tg.openLink("https://telegram.org/tos/stars"); };
+  $("faq-tos").classList.add("hidden");  // مخصوص تلگرام بود
   document.querySelectorAll("#faq-sheet summary").forEach((x) => x.addEventListener("click", tap));
 }
 
@@ -1836,11 +1843,11 @@ function renderWallet(w) {
   wallet.data = w;
   creator.renderEarnings(w);
   const avail = w.available ?? 0, min = w.min;
-  $("w-balance").textContent = w.balance ?? "?";
+  $("w-balance").textContent = num(w.balance) ?? "?";
   $("w-available").textContent = w.available ?? "?";
   $("w-pending").textContent = w.pending;
   $("w-unlock").textContent = w.next_unlock ? t("wallet_next_unlock", shortDate(w.next_unlock)) : t("wallet_nothing_pending");
-  const pct = Math.max(0, Math.min(100, Math.round((avail / min) * 100)));
+  const pct = min > 0 ? Math.max(0, Math.min(100, Math.round((avail / min) * 100))) : 100;  // بله: حداقل برداشت نداریم
   requestAnimationFrame(() => { $("w-ring").style.strokeDashoffset = String(251.3 * (1 - pct / 100)); });
   $("w-ring-text").textContent = `${pct}%`;
   $("w-sub").textContent = avail >= min ? t("withdraw_ready_short") : t("to_withdraw", min - avail);
@@ -1868,7 +1875,7 @@ function renderWallet(w) {
       ${kicon(x.kind)}
       <span class="purchase-meta"><b>${esc(x.title || t("kinds")[x.kind])}</b>
         <small>${x.date ? shortDate(x.date) : ""}</small><span class="tag ${cls}">${label}</span></span>
-      <b class="num sale-amount ${x.refunded ? "refunded" : ""}">+${x.amount} ★</b>
+      <b class="num sale-amount ${x.refunded ? "refunded" : ""}">+${toman(x.amount)}</b>
     </div>`;
   }).join("");
 }
@@ -1891,7 +1898,7 @@ function purchaseRow(p) {
     <button class="row" data-link="${esc(p.link)}">
       ${kicon(p.kind)}
       <span class="purchase-meta"><b>${esc(p.title || t("kinds")[p.kind])}</b>
-        <small><span class="num gold">${p.amount} ★</span> · <bdi>@${esc(p.shop)}</bdi></small>
+        <small><span class="num gold">${toman(p.amount)}</span> · <bdi>@${esc(p.shop)}</bdi></small>
         <span class="tag ${p.opened ? "" : "new"}">${p.opened ? t("opened_tag") : t("not_opened_tag")}</span></span>
       <svg class="chev"><use href="#i-chev"/></svg>
     </button>`;
@@ -2041,7 +2048,7 @@ function initNav() {
   // دکمه‌ی آپلود وسط: فروشنده → ربات فروشگاه؛ بقیه → ربات اصلی (لینک رایگان)
   $("fab").onclick = () => {
     tap();
-    openTelegram(me.shop ? `https://t.me/${me.shop.bot}?start=upload` : `https://t.me/${me.main_bot}`);
+    openTelegram(me.shop ? `https://ble.ir/${me.shop.bot}?start=upload` : `https://ble.ir/${me.main_bot}`);
   };
   // دکمه‌ی «تنظیمات» در منوی سه‌نقطه‌ی تلگرام → پروفایل
   try { tg.SettingsButton.show(); tg.SettingsButton.onClick(() => { if (!STORE) showPage("page-profile"); }); } catch (e) { /* قدیمی */ }
@@ -2055,11 +2062,7 @@ function initNav() {
 
 // زبان پیش از رسیدن پاسخ سرور: از زبان تلگرام حدس می‌زنیم
 function guessLang() {
-  const code = (tg?.initDataUnsafe?.user?.language_code || "fa").toLowerCase();
-  if (["ru", "uk", "be", "kk"].some((x) => code.startsWith(x))) return "ru";
-  if (code.startsWith("ar")) return "ar";
-  if (code.startsWith("zh")) return "zh";
-  return "fa";  // مثل سرور: بیشتر کاربران ایرانی تلگرام انگلیسی دارند
+  return "fa";  // نسخه‌ی بله فقط فارسی است
 }
 
 async function main() {

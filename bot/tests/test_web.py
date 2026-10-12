@@ -162,18 +162,18 @@ async def test_translations_are_served_and_complete(client):
         for k, v in d.items():
             yield from flat(v, p + k + ".") if isinstance(v, dict) else [(p + k, v)]
     dicts = {}
-    for lang in ("fa", "en", "ru", "ar", "zh"):
+    for lang in ("fa",):   # نسخه‌ی بله فقط فارسی است
         r = await client.get(f"/static/i18n/{lang}.json?v=1")
         assert r.status == 200 and r.headers["Content-Type"].startswith("application/json")
         dicts[lang] = dict(flat(await r.json()))
     for lang, d in dicts.items():
-        assert d.keys() == dicts["en"].keys(), lang
-        for k, v in dicts["en"].items():
+        assert d.keys() == dicts["fa"].keys(), lang
+        for k, v in dicts["fa"].items():
             assert set(re.findall(r"\{\w+\}", v)) == set(re.findall(r"\{\w+\}", d[k])), (lang, k)
     # هر کلیدی که صفحه استفاده می‌کند ترجمه دارد
     html = (await (await client.get("/")).text())
     for key in re.findall(r'data-i18n(?:-ph)?="(\w+)"', html):
-        assert key in dicts["en"], key
+        assert key in dicts["fa"], key
 
 
 async def test_my_purchases_are_private(env, client):
@@ -215,7 +215,7 @@ async def test_translation_change_refreshes_app_version():
     """ترجمه‌ها با نسخه‌ی app.js دانلود و یک سال کش می‌شوند؛ تغییر ترجمه باید نسخه را عوض کند."""
     import os
     from app.web import WEBAPP_DIR, asset_version
-    path = WEBAPP_DIR / "i18n" / "ru.json"
+    path = WEBAPP_DIR / "i18n" / "fa.json"
     st = path.stat()
     try:
         os.utime(path, (st.st_atime, st.st_mtime + 10_000_000))

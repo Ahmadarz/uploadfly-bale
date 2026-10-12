@@ -14,7 +14,7 @@ creator.renderTools = async function renderTools() {
   $("cr-fans").onclick = () => { tap(); creator.openFans(); };
   $("cr-settings").onclick = () => { tap(); creator.openSettings(); };
   $("cr-invite").onclick = () => { tap(); creator.openSettings(true); };
-  $("cr-broadcast").onclick = () => { tap(); openTelegram(`https://t.me/${me.shop.bot}?start=broadcast`); };
+  $("cr-broadcast").onclick = () => { tap(); openTelegram(`https://ble.ir/${me.shop.bot}?start=broadcast`); };
   try { creator.data = await api("/api/creator"); } catch (e) { return; }
   const d = creator.data;
   $("cr-fans-n").textContent = d.followers || "";
@@ -54,7 +54,7 @@ creator.fillSettings = function fillSettings() {
   $("cr-ref-link").textContent = ref.link;
   $("cr-ref-stats").textContent = t("cr_invite_stats", { n: ref.invited, s: ref.shops });
   $("cr-ref-copy").onclick = () => copyText(ref.link, $("cr-ref-link"));
-  $("cr-ref-share").onclick = () => { tap(); openTelegram(`https://t.me/share/url?url=${encodeURIComponent(ref.link)}&text=${encodeURIComponent(t("cr_invite_share"))}`); };
+  $("cr-ref-share").onclick = () => { tap(); shareLink(ref.link, t("cr_invite_share")); };
 };
 
 creator.save = async function save(patch) {
@@ -67,7 +67,7 @@ creator.save = async function save(patch) {
 // ---------------- فن‌ها ----------------
 creator.openFans = async function openFans() {
   openSubPage("page-fans");
-  $("fans-broadcast").onclick = () => { tap(); openTelegram(`https://t.me/${me.shop.bot}?start=broadcast`); };
+  $("fans-broadcast").onclick = () => { tap(); openTelegram(`https://ble.ir/${me.shop.bot}?start=broadcast`); };
   let d;
   try { d = await api("/api/fans"); } catch (e) { return toast(errMsg(e.code)); }
   const c = d.counts;
@@ -84,7 +84,7 @@ creator.openFans = async function openFans() {
       <span class="purchase-meta"><b>${esc(name)}${f.blocked ? " 🚫" : ""}</b>
         <small>${f.last ? shortDate(f.last) : ""}</small>
         <span class="tag ${cls}">${label}</span></span>
-      <span class="fan-amount">${f.spent} ★</span>
+      <span class="fan-amount">${toman(f.spent)}</span>
     </div>`;
   }).join("");
 };
@@ -150,7 +150,7 @@ creator.renderStore = function renderStore() {
   const bundles = (sc && sc.bundles) || [];
   $("store-bundles").classList.toggle("hidden", !(showJoin && bundles.length));
   $("store-bundles").innerHTML = bundles.map((b) => `
-    <button class="bundle-opt" data-m="${b.months}"><span>${t("bundle_months", b.months)} ${b.off ? `<span class="off">−${b.off}%</span>` : ""}</span><b>${b.price} ★</b></button>`).join("");
+    <button class="bundle-opt" data-m="${b.months}"><span>${t("bundle_months", b.months)} ${b.off ? `<span class="off">−${b.off}%</span>` : ""}</span><b>${toman(b.price)}</b></button>`).join("");
   $("store-bundles").querySelectorAll(".bundle-opt").forEach((x) => { x.onclick = () => creator.joinBundle(Number(x.dataset.m)); });
   // عضو آزمایشی: دکمه‌ی «مشترک شو» تا قطع نشود
   const trialMember = sc && sc.is_member && sc.is_trial;
@@ -243,7 +243,7 @@ creator.openTip = function openTip(contentId) {
     $("tip-send").textContent = v > 0 ? t("tip_send", v) : t("tip_btn");
     $("tip-send").disabled = !(v >= 1 && v <= (store.data.shop.tip_max || 2500));
   };
-  $("tip-chips").innerHTML = presets.map((v) => `<button class="chip" data-v="${v}">${v} ★</button>`).join("");
+  $("tip-chips").innerHTML = presets.map((v) => `<button class="chip" data-v="${v}">${toman(v)}</button>`).join("");
   $("tip-chips").querySelectorAll(".chip").forEach((c) => { c.onclick = () => { tap(); $("tip-amount").value = c.dataset.v; sync(); }; });
   $("tip-amount").oninput = sync;
   $("tip-send").onclick = creator.sendTip;
@@ -335,7 +335,7 @@ creator.renderSceAccess = function renderSceAccess() {
   $("sce-bundles").innerHTML = BUNDLE_MONTHS.map((m) => {
     const off = scEd.bundles[m] ?? scEd.bundles[String(m)];
     const total = off === undefined || off === "" ? "" : Math.max(1, Math.round(price * m * (100 - off) / 100));
-    return `<label>${t("bundle_months", m)}<input type="number" inputmode="numeric" min="0" max="50" data-m="${m}" value="${off ?? ""}" placeholder="—"><span>${total ? `${total} ★` : "&nbsp;"}</span></label>`;
+    return `<label>${t("bundle_months", m)}<input type="number" inputmode="numeric" min="0" max="50" data-m="${m}" value="${off ?? ""}" placeholder="—"><span>${total ? `${toman(total)}` : "&nbsp;"}</span></label>`;
   }).join("");
   $("sce-bundles").querySelectorAll("input").forEach((inp) => {
     inp.onchange = () => {
@@ -357,7 +357,7 @@ creator.sceAccessBody = function sceAccessBody() {
 creator.renderEarnings = function renderEarnings(w) {
   const e = w.earnings; if (!e) return;
   for (const k of ["sales", "subs", "tips"]) {
-    $(`we-${k}`).textContent = e[k];
+    $(`we-${k}`).textContent = num(e[k]);
     $(`we-${k}-m`).textContent = t("cr_earn_month", e.month[k]);
   }
 };
@@ -368,13 +368,13 @@ creator.renderEarnings = function renderEarnings(w) {
 const BANNERS = {
   seller: [
     { k: "sub", tone: "navy", icon: "i-calendar", go: () => openShowcaseEditor(null) },
-    { k: "fans", tone: "warm", icon: "i-megaphone", go: () => openTelegram(`https://t.me/${me.shop.bot}?start=broadcast`) },
+    { k: "fans", tone: "warm", icon: "i-megaphone", go: () => openTelegram(`https://ble.ir/${me.shop.bot}?start=broadcast`) },
     { k: "bio", tone: "rose", icon: "i-instagram", go: () => openStory(null) },
   ],
   none: [
     { k: "explore", tone: "navy", icon: "i-compass", go: () => creator.openExplore() },
     { k: "money", tone: "warm", icon: "i-shield", go: () => openFaq() },
-    { k: "free", tone: "mint", icon: "i-link", go: () => openTelegram(`https://t.me/${me.main_bot}`) },
+    { k: "free", tone: "mint", icon: "i-link", go: () => openTelegram(`https://ble.ir/${me.main_bot}`) },
   ],
 };
 

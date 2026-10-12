@@ -1328,10 +1328,11 @@ BINARY = {".woff2": "font/woff2", ".jpg": "image/jpeg", ".png": "image/png", ".w
 _asset_cache: dict[Path, tuple[float, bytes]] = {}
 
 
-# فقط فایل‌های خودمان و اسکریپت رسمی تلگرام؛ اگر متنی از کاربر هم جایی بد نمایش داده شود، اسکریپتش اجرا نمی‌شود
-CSP = ("default-src 'self'; script-src 'self' https://telegram.org; style-src 'self' 'unsafe-inline'; "
+# فقط فایل‌های خودمان و اسکریپت رسمی مینی‌اپ بله؛ اگر متنی از کاربر هم جایی بد نمایش داده شود، اسکریپتش اجرا نمی‌شود
+CSP = ("default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; "
        "img-src 'self' blob: data:; media-src 'self' blob:; connect-src 'self'; font-src 'self'; "
-       "object-src 'none'; base-uri 'none'; form-action 'none'")
+       "object-src 'none'; base-uri 'none'; form-action 'none'; "
+       "frame-src https://*.bale.ai; frame-ancestors 'self' https://*.bale.ai")  # بله‌ی وب مینی‌اپ را در iframe باز می‌کند
 
 
 @web.middleware
@@ -1399,7 +1400,7 @@ def read_asset(path: Path) -> bytes:
 
 async def index(request: web.Request) -> web.Response:
     html = read_asset(WEBAPP_DIR / "index.html").decode()
-    for name in ("tokens.css", "app.css", "app.js", "creator.js", "logo.jpg"):  # نسخه در آدرس: فایل تغییرکرده حتماً دوباره دانلود می‌شود
+    for name in ("tokens.css", "app.css", "bale-sdk.js", "bale.js", "app.js", "creator.js", "logo.jpg"):  # نسخه در آدرس: فایل تغییرکرده حتماً دوباره دانلود می‌شود
         html = html.replace(f"/static/{name}", f"/static/{name}?v={asset_version(name)}")
     resp = web.Response(text=html, content_type="text/html", headers={"Cache-Control": "no-cache", "Content-Security-Policy": CSP})
     resp.enable_compression()

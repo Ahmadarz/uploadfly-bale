@@ -46,10 +46,27 @@
   - Monthly showcases have no auto-renewal: each payment adds 30 days (`Membership.canceled=True`), members may renew
     early; reminders ask them to pay again.
   - Wallet page: `balance` = sum of recorded income; no hold period, no minimum, no Premium.
+- Mini App on Bale (`bot/webapp/`):
+  - `bale-sdk.js` = Bale's official `tapi.bale.ai/miniapp.js`, vendored inside an IIFE (the original leaks dozens of
+    short globals such as `me`, which broke `app.js`). `bale.js` = adapter that exposes `window.Telegram.WebApp` on top
+    of `Bale.WebApp`, so `app.js`/`creator.js` keep using `tg.*`. What Bale lacks is built in-page: MainButton (fixed
+    bottom bar, `.bale-main`), `showConfirm`/`showAlert` (modal), haptics (vibrate), no CloudStorage (localStorage),
+    `isVersionAtLeast()` is always false (hides story share, file download, home-screen shortcut).
+  - Same launch protocol as Telegram: init data arrives in the URL hash (`#tgWebAppData=…&tgWebAppVersion=…&
+    tgWebAppPlatform=web`), validated server-side with the same HMAC (`aiogram.utils.web_app`). Local test in the
+    browser pane: build such a URL signed with the main bot token, platform `web`.
+  - Persian only (`i18n/fa.json`; other language files deleted). Money shown as «N تومان» (`toman()`, `num()` with
+    thousands separators; `.cur` span replaces the Star icon). Share buttons use the phone's share sheet or copy
+    (Bale has no share URL). No ring/hold/Premium/TON in the wallet.
+  - Bale cannot set the menu button by API: `/start` carries a web_app button (`btn_open_app`) when `WEBAPP_URL` is
+    set; the owner should also register the Mini App URL in Bale's @botfather once a fixed HTTPS address exists.
+  - CSP allows framing by `*.bale.ai` (Bale web opens Mini Apps in an iframe); never send `X-Frame-Options`.
 - Port roadmap: [x] 1. main bot on Bale → free links. [x] 2. chat texts for Bale/toman. [x] 3. seller's own bot +
   wallet token, toman prices, purchase flow (all verified by tests and a live smoke run of the main-bot commands;
-  the owner still has to test a real purchase in a seller bot). [ ] 4. Mini App on `Bale.WebApp` (needs an HTTPS
-  address; `webapp/` is still the Telegram version and is off while `WEBAPP_URL` is empty). [ ] 5. in-app viewer.
+  the owner still has to test a real purchase in a seller bot). [~] 4. Mini App on `Bale.WebApp`: ported and
+  checked locally in the browser pane (dashboard, wallet, products, support, storefront load without JS errors);
+  NOT yet opened inside the Bale app, because that needs an HTTPS address (`WEBAPP_URL`). In-app payment
+  (`openInvoice`), opening chat links and the back button are untested on a real client. [ ] 5. in-app viewer.
   [ ] 6. server + website (`website/` and `deploy/` are still the Telegram version).
 
 ---

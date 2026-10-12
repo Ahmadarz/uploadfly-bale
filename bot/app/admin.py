@@ -169,7 +169,8 @@ async def funnel(session: AsyncSession, since: datetime | None = None) -> list[t
     ]
 
 
-REASON_FA = {"mismatch": "فرق با توضیحات", "broken": "فایل خراب", "forbidden": "ممنوع", "other": "دیگر", None: "قدیمی"}
+REASON_FA = {"mismatch": "فرق با توضیحات", "broken": "فایل خراب", "forbidden": "ممنوع", "other": "دیگر",
+             "undelivered": "کالا نرسیده", None: "قدیمی"}
 
 
 @router.message(Command("reports"))

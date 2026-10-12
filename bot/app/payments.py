@@ -38,7 +38,17 @@ MAX_REFUNDS_30_DAYS = 3              # هر خریدار در کل UploadFly (ج
 REPORT_WINDOW = timedelta(days=7)    # گزارش کلاهبرداری بعد از دیدن محتوا
 # گزارش‌ها هیچ کار خودکاری نمی‌کنند (تصمیم مالک 2026-10-08): چند حساب با خرید ارزان می‌توانستند فروشگاهی را ببندند.
 # مدیر با /reports می‌بیند و خودش با /suspend یا /takedown تصمیم می‌گیرد. «محتوای ممنوع» فوری به مدیر خبر داده می‌شود
-REPORT_REASONS = ("mismatch", "broken", "forbidden", "other")
+REPORT_REASONS = ("mismatch", "broken", "forbidden", "other", "undelivered")
+DIGITAL_REASONS = ("mismatch", "broken", "forbidden", "other")
+PHYSICAL_REASONS = ("undelivered", "mismatch", "forbidden", "other")   # کالای فیزیکی: «نرسیده» به‌جای «فایل خراب»
+REPORT_WINDOW_PHYSICAL = timedelta(days=30)   # پست طول می‌کشد؛ مهلت گزارش سفارش کالا از زمان پرداخت
+
+
+async def report_rules(session: AsyncSession, purchase: Purchase) -> tuple[timedelta, tuple]:
+    """مهلت و دلیل‌های گزارش: سفارش کالای فیزیکی ۳۰ روز، محتوای دیجیتال ۷ روز بعد از دیدن."""
+    from app.db import Order
+    physical = await session.scalar(select(Order.id).where(Order.purchase_id == purchase.id))
+    return (REPORT_WINDOW_PHYSICAL, PHYSICAL_REASONS) if physical else (REPORT_WINDOW, DIGITAL_REASONS)
 
 
 def utcnow() -> datetime:
@@ -159,6 +169,12 @@ async def pre_checkout(query: PreCheckoutQuery, session: AsyncSession, db_user: 
     if seller.is_suspended:
         await query.answer(ok=False, error_message=t["shop_suspended_buyer"])
         return
+    if query.invoice_payload.startswith("o:"):  # سفارش کالای فیزیکی
+        from app import orders
+        ok = query.currency == "XTR" and await orders.check_order(session, query.invoice_payload, bot, seller, db_user,
+                                                                  query.total_amount)
+        await query.answer(ok=ok, error_message=None if ok else t["pay_unavailable"])
+        return
     if query.invoice_payload.startswith("t:"):  # دونیت
         tip = creator.parse_tip(query.invoice_payload)
         ok = tip is not None and query.currency == "XTR" and query.total_amount == tip[0] \
@@ -182,6 +198,7 @@ async def pre_checkout(query: PreCheckoutQuery, session: AsyncSession, db_user: 
     content = await content_from_payload(session, query.invoice_payload, bot.id)
     ok = (content is not None and query.currency == "XTR" and query.total_amount == content.price_stars
           and content.price_stars > 0 and not content.is_draft
+          and not content.is_physical   # کالای فیزیکی فقط از مسیر فرم سفارش (نشانی لازم است)
           and not await is_blacklisted(session, content.file_unique_id)
           and not await get_purchase(session, db_user, content))  # دو بار پول دادن برای یک محتوا نه
     await query.answer(ok=ok, error_message=None if ok else t["pay_unavailable"])
@@ -258,6 +275,10 @@ async def paid(message: Message, session: AsyncSession, db_user: User, bot: Bot,
             select(showcases.Membership.id).where(showcases.Membership.charge_id == cid)) or await session.scalar(
             select(creator.Tip.id).where(creator.Tip.charge_id == cid)):
         log.info("Duplicate payment update ignored")  # تلگرام بعد از ری‌استارت ممکن است دوباره بفرستد
+        return
+    if p.invoice_payload.startswith("o:"):
+        from app import orders
+        await orders.order_paid(message, session, db_user, bot, seller)
         return
     if p.invoice_payload.startswith("s:"):
         await joined_showcase(message, session, db_user, bot, seller, webapp_url)
@@ -404,12 +425,13 @@ async def report_cb(callback: CallbackQuery, session: AsyncSession, db_user: Use
     if purchase.reported_at is not None:
         await callback.answer(t["report_already"], show_alert=True)
         return
-    if purchase.opened_at is None or utcnow() - naive_utc(purchase.opened_at) > REPORT_WINDOW:
+    window, reasons = await report_rules(session, purchase)
+    if purchase.opened_at is None or utcnow() - naive_utc(purchase.opened_at) > window:
         await callback.answer(t["report_expired"], show_alert=True)
         return
     await callback.message.edit_text(t["report_choose"], reply_markup=InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text=t[f"reason_{r}"], callback_data=f"reportr:{purchase.id}:{r}")]
-        for r in REPORT_REASONS]))
+        for r in reasons]))
     await callback.answer()
 
 
@@ -419,8 +441,9 @@ async def report_reason_cb(callback: CallbackQuery, session: AsyncSession, db_us
     t = T(db_user.language)
     _, pid, reason = (callback.data.split(":") + ["", ""])[:3]
     purchase = await session.get(Purchase, int(pid)) if is_id(pid) else None
+    window = (await report_rules(session, purchase))[0] if reportable(purchase, db_user, bot) else REPORT_WINDOW
     if not reportable(purchase, db_user, bot) or reason not in REPORT_REASONS or purchase.reported_at is not None \
-            or purchase.opened_at is None or utcnow() - naive_utc(purchase.opened_at) > REPORT_WINDOW:
+            or purchase.opened_at is None or utcnow() - naive_utc(purchase.opened_at) > window:
         await callback.answer()
         return
     purchase.reported_at, purchase.report_reason = utcnow(), reason

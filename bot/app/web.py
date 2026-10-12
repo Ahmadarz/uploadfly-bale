@@ -178,6 +178,7 @@ def product_json(c: Content, seller: Seller, stats: dict | None = None, showcase
         "title": c.title, "description": c.description, "category": c.category,
         "width": c.width, "height": c.height, "price": c.price_stars, "sensitive": c.is_sensitive,
         "allow_save": c.allow_save, "status": status, "views": c.views, "in_store": c.in_store,
+        "physical": c.is_physical, "stock": c.stock,
         "showcases": showcases_of or [], "rating": (stats or {}).get("rating"),
         "expires_at": c.expires_at.isoformat() + "Z" if c.expires_at else None,
         "link": f"https://ble.ir/{seller.bot_username}?start={c.code}",
@@ -288,6 +289,14 @@ async def api_product_update(request: web.Request) -> web.Response:
             c.is_sensitive, sensitive_changed = body["sensitive"] is True, True
             if c.is_sensitive:
                 c.allow_save = False  # محتوای حساس همیشه محافظت‌شده است
+        if "physical" in body and c.is_draft:   # کالای فیزیکی (فقط قبل از انتشار عوض می‌شود)
+            c.is_physical = body["physical"] is True
+            if c.is_physical:
+                c.is_sensitive, c.allow_save = False, False
+        if "stock" in body and c.is_physical:   # موجودی: عدد، یا null = نامحدود
+            if body["stock"] is not None and (not is_int(body["stock"]) or not 0 <= body["stock"] <= 100_000):
+                return error("bad_stock")
+            c.stock = body["stock"]
         if "in_store" in body:  # نمایش در ویترین؛ لینک محصول در هر حال کار می‌کند
             c.in_store = body["in_store"] is True
         if isinstance(body.get("showcases"), list):  # ویترین‌های اضافه؛ «رایگان برای اعضا» قبلی حفظ می‌شود
@@ -304,6 +313,8 @@ async def api_product_update(request: web.Request) -> web.Response:
             if body["price"] > c.price_stars and body["price"] > await price_cap(session, seller.bot_id):
                 return error("price_cap")
             price = body["price"]
+        if c.is_physical and price == 0 and (body.get("publish") or not c.is_draft):
+            return error("bad_price")   # کالای فیزیکی رایگان معنی ندارد
         if "title" in body:
             title = str(body["title"] or "").strip()
             if len(title) > TITLE_MAX:
@@ -347,7 +358,7 @@ async def api_product_update(request: web.Request) -> web.Response:
         else:
             c.price_stars = price
             # پیش‌نمایش لازم است اگر پولی شده و ندارد، یا میزان تاری‌اش (حساس) عوض شده
-            if not c.is_draft and price > 0 and (not c.preview or sensitive_changed):
+            if not c.is_draft and price > 0 and not c.is_physical and (not c.preview or sensitive_changed):
                 c.preview = None
                 await build_preview(bot, user.id, c, user.language)
         await session.commit()
@@ -765,8 +776,8 @@ async def api_sc_open(request: web.Request) -> web.Response:
         m = await showcases.active_membership(session, sc.id, user.id)
         if m is None:
             return error("sc_not_member", 403)
-        if not it.member_free:
-            return error("sc_paid_item", 409)   # قیمت جدا دارد؛ از مسیر خرید عادی
+        if not it.member_free or c.is_physical:
+            return error("sc_paid_item", 409)   # قیمت جدا دارد (یا کالای فیزیکی است)؛ از مسیر خرید عادی
         purchase = await showcases.unlock_item(session, m, c, user.id)
         if purchase is None:
             return error("sc_not_member", 403)
@@ -1104,9 +1115,12 @@ def store_item(c: Content, stats: dict | None, bought: bool, opened: bool = Fals
         "category": c.category, "price": c.price_stars, "size": c.file_size, "duration": c.duration,
         "width": c.width, "height": c.height, "pages": p.get("pages"), "sensitive": c.is_sensitive,
         "allow_save": c.allow_save and not c.is_sensitive, "sales": (stats or {}).get("sales", 0),
-        "images": len(p.get("photos") or []) or (1 if c.thumb_file_id or (c.kind == "photo" and not c.price_stars) else 0),
+        "images": len(p.get("photos") or []) or (1 if c.thumb_file_id or (c.kind == "photo" and (not c.price_stars or c.is_physical)) else 0),
         "audio": bool(p.get("voice")), "snippet": p.get("text") or (preview.text_snippet(c) if c.kind == "text" else None),
-        "bought": bought, "opened": opened, "created": c.created_at.isoformat() if c.created_at else None,
+        # کالای فیزیکی هر بار دوباره سفارش داده می‌شود و چیزی برای «نمایش» ندارد
+        "bought": bought and not c.is_physical, "opened": opened and not c.is_physical,
+        "physical": c.is_physical, "in_stock": c.stock is None or c.stock > 0,
+        "created": c.created_at.isoformat() if c.created_at else None,
     }
 
 
@@ -1177,7 +1191,9 @@ async def api_store_image(request: web.Request) -> web.Response:
         return error("not_found", 404)
     seller, c = found
     photos = preview.stored(c).get("photos") or []
-    if photos:
+    if c.is_physical and c.kind == "photo":
+        source, blur = c.file_id, False   # عکس کالا باید واضح دیده شود؛ خودِ «محتوا» نیست
+    elif photos:
         source, blur = photos[min(int(n), len(photos) - 1)], False   # از قبل تار است
     elif c.thumb_file_id:  # هر تصویری غیر از پیش‌نمایش سیستم تار می‌شود؛ هیچ محتوایی از ربات بیرون نمی‌رود
         source, blur = c.thumb_file_id, True
@@ -1241,7 +1257,7 @@ async def api_store_invoice(request: web.Request) -> web.Response:
         return error("suspended", 403)
     if c.is_sensitive and c.owner_id != user.id and not user.adult_ok:
         return error("adult_confirm", 409)   # یک بار تأیید ۱۸+ (POST /api/store/<bot>/adult)
-    if c.price_stars == 0 or bought or c.owner_id == user.id:
+    if c.price_stars == 0 or bought or c.owner_id == user.id or c.is_physical:   # کالا: فرم نشانی در چت
         return web.json_response({"open": f"https://ble.ir/{seller.bot_username}?start={c.code}"})
     if bot is None:
         return error("shop_offline", 503)

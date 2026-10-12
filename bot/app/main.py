@@ -6,7 +6,7 @@ from PIL import Image
 from aiogram.exceptions import TelegramNetworkError
 from aiogram.types import MenuButtonWebApp, WebAppInfo
 
-from app import admin, connect, creator, handlers, payments, shop
+from app import admin, connect, creator, handlers, orders, payments, shop
 from app.bots import BotManager, make_bot, setup_commands
 from app.config import settings
 from app.db import init_db
@@ -20,7 +20,9 @@ def build_dispatcher() -> Dispatcher:
     dp = Dispatcher()
     dp.update.outer_middleware(DbMiddleware())
     # ترتیب مهم است: اول اتصال ربات و پرداخت، بعد هندلرهای عمومی (که هر پیامی را آپلود حساب می‌کنند)
-    dp.include_routers(admin.router, connect.router, shop.router, payments.router, creator.router, handlers.router)
+    # orders قبل از creator: متن‌های فرم سفارش (نام، نشانی...) نباید «پیام به فروشنده» حساب شوند
+    dp.include_routers(admin.router, connect.router, shop.router, payments.router, orders.router, creator.router,
+                       handlers.router)
     return dp
 
 

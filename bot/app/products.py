@@ -45,7 +45,7 @@ def post_text(content: Content, link: str, lang: str) -> str | None:
     """متن آماده برای کانال/استوری فروشنده: عنوان، قیمت و لینک خرید. اگر در سقف دکمه‌ی کپی جا نشود None."""
     t = T(lang)
     title = (content.title or content.file_name or t["kinds"].get(content.kind, content.kind)).strip()
-    key = "post_paid" if content.price_stars else "post_free"
+    key = "post_physical" if content.is_physical else "post_paid" if content.price_stars else "post_free"
     for cut in (80, 40, 20):
         text = t[key].format(title=title[:cut], price=toman(content.price_stars), link=link)
         if len(text) <= POST_MAX:
@@ -70,6 +70,7 @@ async def link_created(bot: Bot, chat_id: int, content: Content, lang: str) -> N
     await bot.send_message(
         chat_id,
         t["link_created"].format(specs=format_specs(content, lang), link=link) + f"\n💰 {t['price']}: {price}"
+        + (f"\n\n{t['physical_label']}" if content.is_physical else "")
         + (f"\n{t['sensitive_label']}" if content.is_sensitive else "")
         + (f"\n{t['save_label']}" if content.allow_save else ""),
         reply_markup=link_keyboard(link, lang, content),
@@ -93,7 +94,7 @@ async def build_preview(bot: Bot, chat_id: int, content: Content, lang: str) -> 
 async def publish(bot: Bot, chat_id: int, content: Content, price: int, lang: str) -> None:
     """قیمت را ثبت می‌کند، برای محتوای پولی پیش‌نمایش می‌سازد، منتشر می‌کند و لینک فروش را می‌فرستد."""
     content.price_stars = price
-    if price > 0 and not content.preview:
+    if price > 0 and not content.preview and not content.is_physical:   # عکس کالا واقعی نشان داده می‌شود، نه تار
         await build_preview(bot, chat_id, content, lang)
     content.is_draft, content.is_active = False, True
     await link_created(bot, chat_id, content, lang)

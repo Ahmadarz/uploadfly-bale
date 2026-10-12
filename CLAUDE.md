@@ -72,6 +72,29 @@
   - Not done yet (need the owner): server + domain (24/7 bot, HTTPS for the Mini App, website), a real-wallet purchase
     and Bale's wallet fee, the bot's name/photo/description in Bale's @botfather, support account in `.env`.
     Ideas offered, not built: Bale landing website (the `website/` folder is still the Telegram text), discount codes.
+- **Physical goods** (owner request 2026-10-12; `app/orders.py`, tests `tests/test_orders.py`):
+  - A product becomes physical with the "📦 کالای فیزیکی" toggle on the price keyboard (`phys:<id>`, drafts only;
+    Mini App API: `physical` on drafts). `Content.is_physical`, `Content.stock` (None = unlimited, 0 = sold out),
+    `Seller.shipping_fee` (toman per order, set in the main bot `/shop` → `shop:shipping`). Must have a price; no
+    blurred preview (the real photo is the product picture).
+  - Buyer opens the link → product card (`orders.send_card`) with "order" → 4-step chat form (name, mobile, address,
+    postal code; the last address is offered again) → `Order(status=pending)` → invoice `o:<order_id>` with two lines
+    (price + shipping) → pre-checkout re-checks owner/stock/price → `order_paid`: `Order.paid`, a `Purchase` with the
+    total (so stats, wallet, ratings and reports work unchanged), stock −1, loud message to the seller with the
+    address and a "shipped" button → seller sends the tracking code (or "no code") → buyer is told and can rate.
+    `/orders`: seller sees orders waiting to ship, buyer sees own orders. Owner sets stock from the product card.
+  - A buyer may order the same product again; physical items are never "bought/opened" in the Mini App and can only
+    be paid through the order form (a `c:` invoice is refused, `/api/store/.../invoice` answers `{open: chat link}`).
+    The orders router is included before `creator` so form answers are not treated as DMs to the seller; opening any
+    link in a seller bot clears a half-filled form.
+  - Reports for orders: 30 days from payment, reasons `undelivered / mismatch / forbidden / other`
+    (`payments.report_rules`). There is no escrow and no automatic refund: money is already in the seller's wallet.
+    Buyer protection is the price cap, ratings and admin action on reports. Tell the owner if this proves too weak.
+  - New-seller price caps were raised for Bale (`money.TIER_CAPS`): 500k / 2M / 5M toman, top 10M. Lower caps made
+    goods unsellable; higher caps raise the take-the-money-and-vanish risk. Owner may tune.
+  - Not built: quantity per order, product variants (size/colour), several photos per product, cities/zones with
+    different shipping fees, a Mini App editor switch for physical/stock (API exists), seller order page in the
+    Mini App.
 - Mini App on Bale (`bot/webapp/`):
   - `bale-sdk.js` = Bale's official `tapi.bale.ai/miniapp.js`, vendored inside an IIFE (the original leaks dozens of
     short globals such as `me`, which broke `app.js`). `bale.js` = adapter that exposes `window.Telegram.WebApp` on top

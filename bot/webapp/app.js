@@ -940,6 +940,7 @@ function renderStore() {
   const cta = (i) => i.locked ? `<span class="post-cta lock"><svg><use href="#i-lock"/></svg>${t("post_locked")}</span>`
     : i.unlocked ? `<span class="post-cta own"><svg><use href="#i-eye"/></svg>${t("free_for_members")}</span>`
     : i.bought ? `<span class="post-cta own"><svg><use href="#i-check"/></svg>${t("post_bought")}</span>`
+    : i.physical ? `<span class="post-cta buy"><svg><use href="#i-store"/></svg>${t(i.in_stock ? "post_order" : "post_sold_out", i.price)}</span>`
     : i.price ? `<span class="post-cta buy"><svg><use href="#i-lock"/></svg>${t("post_unlock", i.price)}</span>`
     : `<span class="post-cta"><svg><use href="#i-eye"/></svg>${t("get_free")}</span>`;
   const pin = (i) => (i.id === style.pinned ? `<span class="pin-badge"><svg><use href="#i-pin"/></svg>${t("pinned")}</span>` : "");
@@ -1058,6 +1059,7 @@ function syncBuyButtons() {
   const mb = tg.MainButton;
   if (item.locked) mb.setText(sc.access === "monthly" ? t("sc_join_monthly", sc.price) : t("sc_join_once", sc.price));
   else if (item.unlocked) mb.setText(t("show_content"));
+  else if (item.physical) mb.setText(t("order_btn", item.price));   // کالای فیزیکی: فرم نشانی و پرداخت در چت بازو
   else mb.setText(item.bought ? t("show_content") : item.price ? t("buy_btn", item.price) : t("get_free"));
   if (store.data.shop.suspended && !item.bought && !item.unlocked) mb.hide(); else mb.show();
   $("buy-stars-help").classList.toggle("hidden", mine || item.bought || item.unlocked || !(item.price || item.locked) || store.data.shop.suspended);

@@ -56,7 +56,9 @@ def price_keyboard(content: Content, lang: str, cap: int) -> InlineKeyboardMarku
     presets = [InlineKeyboardButton(text=f"{p:,}", callback_data=f"price:{content_id}:{p}")
                for p in PRICE_PRESETS if p <= cap]
     sensitive = t["btn_sensitive_on"] if content.is_sensitive else t["btn_sensitive_off"]
+    physical = t["btn_phys_on"] if content.is_physical else t["btn_phys_off"]
     return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text=physical, callback_data=f"phys:{content_id}")],
         [InlineKeyboardButton(text=sensitive, callback_data=f"sens:{content_id}")],
         [InlineKeyboardButton(text=t["btn_free"], callback_data=f"price:{content_id}:0")],
         presets[:3], presets[3:],
@@ -115,6 +117,8 @@ async def open_link(message: Message, command: CommandObject, session: AsyncSess
         await state.set_state(Connect.waiting_token)
         await message.answer(t["connect_quick"], reply_markup=create_shop_markup(t, main_username, db_user))
         return
+    if seller is not None:   # لینک تازه باز شد: فرم نیمه‌کاره‌ی سفارش (اگر بود) کنار می‌رود
+        await state.clear()
     content = await session.scalar(select(Content).where(Content.code == code, Content.bot_id == bot.id))
     if content is not None and not content.is_active:
         # آرشیوشده: فقط کسی که قبلاً خریده هنوز دسترسی دارد؛ محتوای حذف‌شده به‌خاطر تخلف هرگز
@@ -131,6 +135,11 @@ async def open_link(message: Message, command: CommandObject, session: AsyncSess
             InlineKeyboardButton(text=t["btn_adult_yes"], callback_data=f"adult:{content.code}")]]))
         return
     content.views += 1
+    if content.is_physical and seller is not None:   # کالای فیزیکی: کارت محصول و دکمه‌ی سفارش (نه تحویل در چت)
+        from app import orders
+        await orders.send_card(bot, message.chat.id, content, seller, db_user.language,
+                               owner_view=content.owner_id == db_user.id)
+        return
     purchase = None
     if content.price_stars > 0 and content.owner_id != db_user.id:
         purchase = await get_purchase(session, db_user, content)
@@ -330,6 +339,23 @@ async def sensitive_toggle(callback: CallbackQuery, session: AsyncSession, db_us
     await callback.answer()
 
 
+@router.callback_query(F.data.startswith("phys:"))
+async def physical_toggle(callback: CallbackQuery, session: AsyncSession, db_user: User, bot: Bot,
+                          seller: Seller | None):
+    """پیش‌نویس را «کالای فیزیکی» می‌کند: بعد از انتشار، خریدار نشانی می‌دهد و فروشنده پست می‌کند."""
+    content = await session.get(Content, cb_id(callback.data))
+    if seller is None or content is None or content.owner_id != db_user.id or content.bot_id != bot.id \
+            or not content.is_draft:
+        await callback.answer()
+        return
+    content.is_physical = not content.is_physical
+    if content.is_physical:
+        content.is_sensitive, content.allow_save = False, False
+    await callback.message.edit_reply_markup(reply_markup=price_keyboard(content, db_user.language, await price_cap(session, bot.id)))
+    await callback.answer(T(db_user.language)["phys_on_hint"] if content.is_physical else None,
+                          show_alert=content.is_physical)
+
+
 @router.callback_query(F.data.startswith("save:"))
 async def save_toggle(callback: CallbackQuery, session: AsyncSession, db_user: User, bot: Bot,
                       seller: Seller | None):
@@ -355,6 +381,9 @@ async def price_chosen(callback: CallbackQuery, session: AsyncSession, db_user: 
     if seller is None or content is None or content.owner_id != db_user.id or content.bot_id != bot.id \
             or not content.is_draft:
         await callback.answer()
+        return
+    if value == "0" and content.is_physical:   # کالای فیزیکی رایگان معنی ندارد
+        await callback.answer(t["phys_needs_price"], show_alert=True)
         return
     if value != "0" and not seller.wallet_enc:  # بدون کیف پول، فاکتوری نمی‌شود ساخت
         await callback.answer()

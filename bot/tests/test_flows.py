@@ -58,7 +58,7 @@ async def test_shop_upload_creates_draft_with_mini_app_button(env):
 async def test_start_upload_prompt(env):
     """دکمه‌ی + در Mini App: قبل از آپلود بگوید فایل را بفرست."""
     await env.feed(env.shop, message(OWNER, "/start upload"))
-    assert "فایلی که می‌خوای بفروشی رو همین‌جا بفرست" in env.tg.texts(SHOP_ID)
+    assert "می‌خوای بفروشی رو همین‌جا بفرست" in env.tg.texts(SHOP_ID)
     env.tg.clear()
     await env.feed(env.shop, message(STRANGER, "/start upload"))
     assert "فقط صاحب این بازو" in env.tg.texts(SHOP_ID)

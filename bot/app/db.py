@@ -87,6 +87,9 @@ class Content(Base):
     # پیش‌نویس = در ربات فروشنده آپلود شده ولی هنوز منتشر نشده. منتشرشده + is_active=False یعنی بایگانی
     is_draft: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    # کالای فیزیکی: چیزی در چت تحویل نمی‌شود؛ خریدار نشانی می‌دهد و فروشنده پست می‌کند (app/orders.py)
+    is_physical: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
+    stock: Mapped[int | None] = mapped_column(Integer)   # موجودی کالای فیزیکی؛ None = نامحدود، ۰ = ناموجود
     views: Mapped[int] = mapped_column(Integer, default=0)
     publish_at: Mapped[datetime | None] = mapped_column(DateTime)   # UTC؛ پیش‌نویسی که در این زمان خودکار منتشر می‌شود
     notified_at: Mapped[datetime | None] = mapped_column(DateTime)  # خبر «پست تازه» به فن‌ها فرستاده شده
@@ -102,6 +105,7 @@ class Seller(Base):
     bot_id: Mapped[int] = mapped_column(BigInteger, unique=True, index=True)
     bot_username: Mapped[str] = mapped_column(String(64))
     token_enc: Mapped[str] = mapped_column(Text)  # توکن رمزنگاری‌شده؛ هرگز متن خام ذخیره نمی‌شود
+    shipping_fee: Mapped[int] = mapped_column(Integer, default=0, server_default="0")  # هزینه‌ی ارسال هر سفارش (تومان)؛ ۰ = رایگان
     # توکن کیف پول بله‌ی همین بازو (رمزنگاری‌شده)؛ بدون آن فروش پولی ممکن نیست. پول مستقیم به همین کیف پول می‌رود
     wallet_enc: Mapped[str | None] = mapped_column(Text)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
@@ -154,6 +158,30 @@ class Purchase(Base):
     report_reason: Mapped[str | None] = mapped_column(String(16))  # REPORT_REASONS در payments
     # شناسه‌ی پیام‌هایی که محتوا در چت خریدار با آن‌ها فرستاده شده؛ با بازپرداخت پاک می‌شوند
     message_ids: Mapped[str] = mapped_column(Text, default="", server_default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class Order(Base):
+    """سفارش کالای فیزیکی. pending = فرم پر شده و فاکتور رفته | paid = پرداخت شده، منتظر ارسال | shipped = ارسال شد.
+    نشانی فقط به فروشنده‌ی همان سفارش نشان داده می‌شود."""
+    __tablename__ = "orders"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    content_id: Mapped[int] = mapped_column(Integer, ForeignKey("contents.id"), index=True)
+    bot_id: Mapped[int] = mapped_column(BigInteger, index=True)
+    buyer_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id"), index=True)
+    amount: Mapped[int] = mapped_column(Integer)                       # جمع کل (قیمت + ارسال)، تومان
+    shipping_fee: Mapped[int] = mapped_column(Integer, default=0)
+    name: Mapped[str] = mapped_column(String(80))
+    phone: Mapped[str] = mapped_column(String(20))
+    address: Mapped[str] = mapped_column(Text)
+    postal_code: Mapped[str | None] = mapped_column(String(12))
+    status: Mapped[str] = mapped_column(String(12), default="pending", index=True)
+    charge_id: Mapped[str | None] = mapped_column(Text)
+    purchase_id: Mapped[int | None] = mapped_column(Integer)           # Purchase همین سفارش (آمار، امتیاز، گزارش)
+    tracking: Mapped[str | None] = mapped_column(String(64))           # کد رهگیری پست
+    paid_at: Mapped[datetime | None] = mapped_column(DateTime)
+    shipped_at: Mapped[datetime | None] = mapped_column(DateTime)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
@@ -339,7 +367,8 @@ def cb_id(data: str | None) -> int:
 
 # ستون‌هایی که بعد از ساخت اولیه‌ی جدول اضافه شده‌اند (تا وقتی Alembic اضافه شود)
 _ADDED_COLUMNS = {
-    "contents": {"is_sensitive": "BOOLEAN NOT NULL DEFAULT false", "allow_save": "BOOLEAN NOT NULL DEFAULT false",
+    "contents": {"is_physical": "BOOLEAN NOT NULL DEFAULT false", "stock": "INTEGER",
+                 "is_sensitive": "BOOLEAN NOT NULL DEFAULT false", "allow_save": "BOOLEAN NOT NULL DEFAULT false",
                  "thumb_file_id": "TEXT", "preview": "TEXT", "is_draft": "BOOLEAN NOT NULL DEFAULT false",
                  "title": "VARCHAR(80)", "description": "TEXT", "category": "VARCHAR(24)",
                  "in_store": "BOOLEAN NOT NULL DEFAULT true", "expires_at": "TIMESTAMP",
@@ -349,7 +378,7 @@ _ADDED_COLUMNS = {
                   "background": "VARCHAR(24)", "trial_days": "INTEGER NOT NULL DEFAULT 0", "bundles": "TEXT"},
     "users": {"tz_offset": "INTEGER", "source": "VARCHAR(32)", "referrer_id": "BIGINT", "cta_at": "TIMESTAMP",
               "adult_ok": "BOOLEAN NOT NULL DEFAULT false"},
-    "sellers": {"is_suspended": "BOOLEAN NOT NULL DEFAULT false", "wallet_enc": "TEXT", "logo": "VARCHAR(24)", "theme": "VARCHAR(16)",
+    "sellers": {"shipping_fee": "INTEGER NOT NULL DEFAULT 0", "is_suspended": "BOOLEAN NOT NULL DEFAULT false", "wallet_enc": "TEXT", "logo": "VARCHAR(24)", "theme": "VARCHAR(16)",
                 "cover": "VARCHAR(24)", "style": "TEXT", "links": "TEXT",
                 "background": "VARCHAR(24)", "bio": "TEXT", "category": "VARCHAR(24)",
                 "listed": "BOOLEAN NOT NULL DEFAULT true", "dm_mode": "VARCHAR(8) NOT NULL DEFAULT 'fans'",

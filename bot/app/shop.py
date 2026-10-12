@@ -6,8 +6,9 @@ import time
 from datetime import datetime, timedelta, timezone
 
 from aiogram import F, Router
-from aiogram.filters import Command
+from aiogram.filters import Command, StateFilter
 from aiogram.fsm.context import FSMContext
+from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -180,6 +181,8 @@ async def home_view(session: AsyncSession, user: User, manager: BotManager) -> t
         [btn(t["btn_sales"], "shop:sales"), btn(t["btn_links"], "shop:links")],
         [btn(t["btn_withdraw"], "shop:withdraw"), btn(t["btn_refresh"], "shop:home")],
         [btn(t["btn_mark_on" if seller.watermark else "btn_mark_off"], "shop:mark")],
+        [btn(t["btn_shipping"].format(fee=toman(seller.shipping_fee) if seller.shipping_fee else t["ship_free_word"]),
+             "shop:shipping")],
         [btn(t["btn_disconnect"], "shop:disconnect")],
     ])
     return text, markup
@@ -279,6 +282,46 @@ async def shop_withdraw(callback: CallbackQuery, session: AsyncSession, db_user:
     else:
         text = t["withdraw_steps"].format(bot=seller.bot_username, min=WITHDRAW_MIN)
     await show(callback, text, back_markup(t))
+
+
+class ShopForm(StatesGroup):
+    shipping = State()
+
+
+SHIPPING_MAX = 2_000_000   # تومان
+
+
+@router.callback_query(F.data == "shop:shipping")
+async def shop_shipping(callback: CallbackQuery, session: AsyncSession, db_user: User, state: FSMContext):
+    """هزینه‌ی ارسال هر سفارش کالای فیزیکی (به قیمت کالا در فاکتور اضافه می‌شود)."""
+    await callback.answer()
+    if await active_seller(session, db_user) is None:
+        return
+    await state.set_state(ShopForm.shipping)
+    await callback.message.answer(T(db_user.language)["shipping_ask"])
+
+
+@router.message(StateFilter(ShopForm.shipping), Command("cancel"))
+async def shop_shipping_cancel(message: Message, db_user: User, state: FSMContext):
+    await state.clear()
+    await message.answer(T(db_user.language)["cancelled"])
+
+
+@router.message(StateFilter(ShopForm.shipping), F.text, ~F.text.startswith("/"))
+async def shop_shipping_set(message: Message, session: AsyncSession, db_user: User, state: FSMContext):
+    t = T(db_user.language)
+    text = message.text.strip().translate(str.maketrans("۰۱۲۳۴۵۶۷۸۹", "0123456789")).replace(",", "").replace("٬", "")
+    seller = await active_seller(session, db_user)
+    if seller is None:
+        await state.clear()
+        return
+    if not text.isdigit() or int(text) > SHIPPING_MAX:
+        await message.answer(t["bad_shipping"])
+        return
+    seller.shipping_fee = int(text)
+    await session.commit()
+    await state.clear()
+    await message.answer(t["shipping_set"].format(fee=toman(seller.shipping_fee) if seller.shipping_fee else t["ship_free_word"]))
 
 
 @router.callback_query(F.data == "shop:mark")

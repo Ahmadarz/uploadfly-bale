@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- پشتیبان روزانه‌ی دیتابیس UploadFly (ساعت ۴ صبح؛ اگر مک خواب بود، بعد از بیدار شدن). نصب:
+     cp scripts/com.uploadfly.backup.plist ~/Library/LaunchAgents/ && launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.uploadfly.backup.plist -->
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.uploadfly.backup</string>
+  <key>ProgramArguments</key>
+  <array><string>/bin/sh</string><string>/Users/ason/Projects/UploadFly/bot/scripts/backup_local.sh</string></array>
+  <key>StartCalendarInterval</key><dict><key>Hour</key><integer>4</integer><key>Minute</key><integer>0</integer></dict>
+  <key>StandardOutPath</key><string>/Users/ason/UploadFly-backups/backup.log</string>
+  <key>StandardErrorPath</key><string>/Users/ason/UploadFly-backups/backup.log</string>
+</dict>
+</plist>

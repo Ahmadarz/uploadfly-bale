@@ -1,0 +1,120 @@
+/* Hallmark · genre: utility file-manager · theme: custom "Soft files" (light neumorphic + dark file manager)
+ * design-system: design.md · follows Telegram colorScheme via <html data-theme>
+ */
+
+/* --- فونت‌ها: هر خط فقط وقتی لازم شود دانلود می‌شود (unicode-range + زبان کاربر) --- */
+@font-face { font-family: "Vazirmatn"; font-weight: 100 900; font-display: swap;
+  src: url("/static/fonts/vazirmatn-arabic-wght-normal.woff2") format("woff2");
+  unicode-range: U+0600-06FF, U+0750-077F, U+0870-088E, U+0890-0891, U+0898-08E1, U+08E3-08FF, U+200C-200E, U+2010-2011, U+204F, U+2E41, U+FB50-FDFF, U+FE70-FE74, U+FE76-FEFC; }
+@font-face { font-family: "Vazirmatn"; font-weight: 100 900; font-display: swap;
+  src: url("/static/fonts/vazirmatn-latin-wght-normal.woff2") format("woff2"); unicode-range: U+0000-00FF; }
+@font-face { font-family: "IBM Plex Sans Arabic"; font-weight: 400; font-display: swap;
+  src: url("/static/fonts/ibm-plex-sans-arabic-arabic-400-normal.woff2") format("woff2");
+  unicode-range: U+0600-06FF, U+0750-077F, U+0870-088E, U+0890-0891, U+0898-08E1, U+08E3-08FF, U+200C-200E, U+2010-2011, U+204F, U+2E41, U+FB50-FDFF, U+FE70-FE74, U+FE76-FEFC; }
+@font-face { font-family: "IBM Plex Sans Arabic"; font-weight: 600; font-display: swap;
+  src: url("/static/fonts/ibm-plex-sans-arabic-arabic-600-normal.woff2") format("woff2");
+  unicode-range: U+0600-06FF, U+0750-077F, U+0870-088E, U+0890-0891, U+0898-08E1, U+08E3-08FF, U+200C-200E, U+2010-2011, U+204F, U+2E41, U+FB50-FDFF, U+FE70-FE74, U+FE76-FEFC; }
+@font-face { font-family: "Onest"; font-weight: 100 900; font-display: swap;
+  src: url("/static/fonts/onest-latin-wght-normal.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: "Onest"; font-weight: 100 900; font-display: swap;
+  src: url("/static/fonts/onest-cyrillic-wght-normal.woff2") format("woff2"); unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
+@font-face { font-family: "Unbounded"; font-weight: 200 900; font-display: swap;
+  src: url("/static/fonts/unbounded-latin-wght-normal.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: "Unbounded"; font-weight: 200 900; font-display: swap;
+  src: url("/static/fonts/unbounded-cyrillic-wght-normal.woff2") format("woff2"); unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
+
+:root {
+  /* رنگ‌ها: تم روشن (پیش‌فرض) — design.md § Theme */
+  --color-paper:   #e9ebf3;
+  --color-paper-2: #f1f2f8;
+  --color-paper-3: #e2e4ee;
+  --color-rule:    oklch(25% 0.05 280 / 0.08);
+  --color-ink:     #1c1e3a;
+  --color-ink-2:   #575b7d;
+  --color-ink-3:   #8a8dab;
+  --color-accent:  #5b5bd6;
+  --color-accent-2: #33c3e8;
+  --color-accent-ink: #ffffff;
+  --color-accent-soft: oklch(55% 0.18 280 / 0.12);
+  --color-star:    #e6a100;
+  --color-star-soft: oklch(78% 0.16 80 / 0.16);
+  --color-success: #1f9d6b;
+  --color-success-soft: oklch(65% 0.14 160 / 0.14);
+  --color-danger:  #e5484d;
+  --color-danger-soft: oklch(62% 0.2 25 / 0.12);
+  --color-scrim:   oklch(20% 0.04 280 / 0.45);
+  --color-focus:   var(--color-accent);
+  --hero-from: #2d3060; --hero-to: #1b1d3f; --hero-ink: #ffffff; --hero-ink-2: oklch(100% 0 0 / 0.66);
+  --hero-track: oklch(100% 0 0 / 0.12);
+  --shadow-raised: 7px 7px 16px oklch(62% 0.04 280 / 0.32), -7px -7px 16px oklch(100% 0 0 / 0.9);
+  --shadow-soft:   4px 4px 10px oklch(62% 0.04 280 / 0.25), -4px -4px 10px oklch(100% 0 0 / 0.85);
+  --shadow-inset:  inset 3px 3px 7px oklch(62% 0.04 280 / 0.28), inset -3px -3px 7px oklch(100% 0 0 / 0.85);
+  --shadow-float:  0 14px 34px oklch(40% 0.06 280 / 0.22);
+  --card-border:   0 solid transparent;
+
+  /* رنگ هر نوع محتوا (آیکن رنگی روی زمینه‌ی کم‌رنگ همان رنگ) */
+  --k-photo: #f08c1a;      --k-photo-soft: oklch(75% 0.16 60 / 0.16);
+  --k-video: #e5484d;      --k-video-soft: oklch(62% 0.2 25 / 0.14);
+  --k-animation: #d6409f;  --k-animation-soft: oklch(62% 0.2 350 / 0.14);
+  --k-video_note: #f2655a; --k-video_note-soft: oklch(68% 0.17 30 / 0.14);
+  --k-audio: #3b82f6;      --k-audio-soft: oklch(62% 0.18 260 / 0.14);
+  --k-voice: #12a5b5;      --k-voice-soft: oklch(68% 0.11 210 / 0.16);
+  --k-document: #8b5cf6;   --k-document-soft: oklch(60% 0.2 295 / 0.14);
+  --k-text: #22a06b;       --k-text-soft: oklch(65% 0.14 160 / 0.15);
+
+  /* فونت‌ها (پیش‌فرض: لاتین و سیریلیک) */
+  --font-body:    "Onest", system-ui, sans-serif;
+  --font-display: "Onest", system-ui, sans-serif;
+  --font-num:     "Onest", system-ui, sans-serif;
+  --font-mark:    "Unbounded", system-ui, sans-serif;
+  --display-weight: 700;
+
+  /* فاصله‌ها: مقیاس ۴ پیکسلی */
+  --space-3xs: 0.25rem; --space-2xs: 0.5rem; --space-xs: 0.75rem; --space-sm: 0.875rem;
+  --space-md: 1rem;     --space-lg: 1.5rem;  --space-xl: 2rem;    --space-2xl: 3rem;
+
+  /* اندازه‌ی متن */
+  --text-xs: 0.75rem; --text-sm: 0.8125rem; --text-md: 0.9375rem; --text-lg: 1.125rem;
+  --text-xl: 1.375rem; --text-2xl: 1.75rem; --text-balance: clamp(2.25rem, 11vw, 2.875rem);
+
+  --radius-card: 24px; --radius-tile: 20px; --radius-control: 16px; --radius-thumb: 14px; --radius-pill: 999px;
+
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-short: 160ms; --dur-med: 280ms; --dur-long: 520ms;
+}
+
+/* تم تیره (وقتی تلگرام کاربر تیره است) */
+:root[data-theme="dark"] {
+  --color-paper:   #15161b;
+  --color-paper-2: #1f2027;
+  --color-paper-3: #2a2b34;
+  --color-rule:    oklch(100% 0 0 / 0.07);
+  --color-ink:     #f2f3f7;
+  --color-ink-2:   #a9acba;
+  --color-ink-3:   #737686;
+  --color-accent:  #7c7cf8;
+  --color-accent-2: #3ad0f0;
+  --color-accent-soft: oklch(65% 0.17 280 / 0.18);
+  --color-star:    #ffc53d;
+  --color-star-soft: oklch(84% 0.16 85 / 0.14);
+  --color-success: #3dd68c;
+  --color-success-soft: oklch(78% 0.17 155 / 0.13);
+  --color-danger:  #ff6369;
+  --color-danger-soft: oklch(68% 0.2 25 / 0.15);
+  --color-scrim:   oklch(5% 0 0 / 0.6);
+  --hero-from: #2b2e5c; --hero-to: #1a1b33;
+  --shadow-raised: 0 8px 22px oklch(0% 0 0 / 0.35), inset 0 1px 0 oklch(100% 0 0 / 0.04);
+  --shadow-soft:   0 4px 12px oklch(0% 0 0 / 0.3);
+  --shadow-inset:  inset 0 2px 6px oklch(0% 0 0 / 0.35);
+  --shadow-float:  0 14px 34px oklch(0% 0 0 / 0.5);
+  --card-border:   1px solid var(--color-rule);
+}
+
+/* هر زبان، بهترین فونت خط خودش */
+:lang(fa) { --font-body: "Vazirmatn", system-ui, sans-serif; --font-display: "Vazirmatn", system-ui, sans-serif; --display-weight: 700; }
+:lang(ar) { --font-body: "IBM Plex Sans Arabic", "Vazirmatn", system-ui, sans-serif; --font-display: "IBM Plex Sans Arabic", system-ui, sans-serif; --display-weight: 600; }
+:lang(zh) { --font-body: "PingFang SC", "Hiragino Sans GB", "Noto Sans SC", "Noto Sans CJK SC", "Microsoft YaHei", system-ui, sans-serif;
+            --font-display: var(--font-body); --display-weight: 600; }

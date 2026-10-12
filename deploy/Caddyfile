@@ -1,0 +1,32 @@
+# HTTPS خودکار (گواهی رایگان) برای دو آدرس. هر دو در .env:
+#   DOMAIN       = آدرس Mini App و ربات، مثلاً app.uploadfly.com  (بدون دامنه: IP با خط تیره + .sslip.io)
+#   SITE_DOMAIN  = سایت معرفی برای گوگل، مثلاً uploadfly.com
+{$DOMAIN} {
+	reverse_proxy bot:8080
+}
+
+{$SITE_DOMAIN} {
+	root * /srv/site
+	encode zstd gzip
+	try_files {path} {path}/index.html
+	file_server
+	header {
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		X-Frame-Options DENY
+		Content-Security-Policy "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; font-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'"
+		Strict-Transport-Security "max-age=31536000"
+	}
+	@static path /assets/*
+	header @static Cache-Control "public, max-age=2592000"
+	handle_errors {
+		@notfound expression {err.status_code} == 404
+		rewrite @notfound /404.html
+		file_server
+	}
+}
+
+# www → بدون www (یک آدرس واحد برای گوگل)
+www.{$SITE_DOMAIN} {
+	redir https://{$SITE_DOMAIN}{uri} permanent
+}

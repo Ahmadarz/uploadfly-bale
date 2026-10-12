@@ -1,0 +1,915 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="color-scheme" content="light dark">
+  <title>UploadFly</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <link rel="stylesheet" href="/static/tokens.css">
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+  <!-- آیکن‌ها: یک مجموعه‌ی دست‌ساز، همه با currentColor -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <!-- گرادیان‌های مشترک (حلقه‌ها و نمودار)؛ اینجا تا در صفحه‌های پنهان هم کار کنند -->
+    <defs>
+      <linearGradient id="ring-grad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" class="ring-a"/><stop offset="1" class="ring-b"/></linearGradient>
+      <linearGradient id="bar-grad" x1="0" y1="0" x2="0" y2="1"><stop offset="0" class="ring-b"/><stop offset="1" class="ring-a"/></linearGradient>
+    </defs>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></symbol>
+    <symbol id="i-home" viewBox="0 0 24 24"><path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-4.5v-6h-5v6H5a1 1 0 0 1-1-1z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
+    <symbol id="i-grid" viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><rect x="13" y="4" width="7" height="7" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><rect x="4" y="13" width="7" height="7" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><rect x="13" y="13" width="7" height="7" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/></symbol>
+    <symbol id="i-list" viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="5" cy="6" r="1.3" fill="currentColor"/><circle cx="5" cy="12" r="1.3" fill="currentColor"/><circle cx="5" cy="18" r="1.3" fill="currentColor"/></symbol>
+    <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8.5" r="3.7" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M4.5 20c.9-3.6 3.9-5.6 7.5-5.6s6.6 2 7.5 5.6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+    <symbol id="i-store" viewBox="0 0 24 24"><path d="M4 9.5 5.5 4h13L20 9.5M4 9.5h16M4 9.5c0 1.7 1.2 2.7 2.7 2.7S9.3 11.2 9.3 9.5c0 1.7 1.2 2.7 2.7 2.7s2.7-1 2.7-2.7c0 1.7 1.2 2.7 2.6 2.7S20 11.2 20 9.5M5.5 12v8h13v-8" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></symbol>
+    <symbol id="i-share" viewBox="0 0 24 24"><path d="M12 15V4m0 0-4 4m4-4 4 4M5 13v5.5A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5V13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.7 0l3-3A4 4 0 0 0 13 5.3l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3A4 4 0 0 0 11 18.7l1-1" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+    <symbol id="i-bot" viewBox="0 0 24 24"><rect x="5" y="8" width="14" height="11" rx="3" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 8V5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="9.5" cy="13.5" r="1.2" fill="currentColor"/><circle cx="14.5" cy="13.5" r="1.2" fill="currentColor"/></symbol>
+    <symbol id="i-wallet" viewBox="0 0 24 24"><path d="M4 7.5A2.5 2.5 0 0 1 6.5 5H17v3M4 7.5V17a2 2 0 0 0 2 2h13a1 1 0 0 0 1-1v-8a1 1 0 0 0-1-1H6.5A2.5 2.5 0 0 1 4 7.5Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="16" cy="14" r="1.3" fill="currentColor"/></symbol>
+    <symbol id="i-power" viewBox="0 0 24 24"><path d="M12 4v7M7.5 7a7 7 0 1 0 9 0" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+    <symbol id="i-book" viewBox="0 0 24 24"><path d="M5 5.5A1.5 1.5 0 0 1 6.5 4H19v14H6.5A1.5 1.5 0 0 0 5 19.5m0-14v14m0 0A1.5 1.5 0 0 0 6.5 21H19" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
+    <symbol id="i-phone" viewBox="0 0 24 24"><rect x="7" y="3" width="10" height="18" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M11 17.5h2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="m16 16 4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-chev" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3.5 5 6v5.5c0 4.3 3 7.6 7 9 4-1.4 7-4.7 7-9V6z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
+    <symbol id="i-bag" viewBox="0 0 24 24"><path d="M5.5 8h13l-1 12h-11zM9 8V6.5a3 3 0 0 1 6 0V8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/></symbol>
+    <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M4 12h16M12 4c2.2 2.3 3.2 5 3.2 8s-1 5.7-3.2 8c-2.2-2.3-3.2-5-3.2-8s1-5.7 3.2-8z" fill="none" stroke="currentColor" stroke-width="1.6"/></symbol>
+    <symbol id="i-upload" viewBox="0 0 24 24"><path d="M7.5 18.5H7a4.5 4.5 0 0 1-.6-8.96A6 6 0 0 1 18 9.5a4 4 0 0 1-.5 9h-1" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 20v-8m0 0-3 3m3-3 3 3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><path d="m7 7 10 10M17 7 7 17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+    <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2.8 12S6 5.5 12 5.5 21.2 12 21.2 12 18 18.5 12 18.5 2.8 12 2.8 12z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="12" r="2.8" fill="none" stroke="currentColor" stroke-width="1.8"/></symbol>
+    <symbol id="i-cart" viewBox="0 0 24 24"><path d="M3.5 4.5h2l2.2 10.2h10l2-7.2H6.6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="9.5" cy="19" r="1.4" fill="currentColor"/><circle cx="16.5" cy="19" r="1.4" fill="currentColor"/></symbol>
+    <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="4" y="5.5" width="16" height="14.5" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M4 10h16M8.5 3.5v4M15.5 3.5v4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="10" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+    <symbol id="i-star" viewBox="0 0 24 24"><path d="m12 3.8 2.4 5 5.4.7-4 3.8 1 5.4L12 16l-4.8 2.7 1-5.4-4-3.8 5.4-.7z" fill="currentColor"/></symbol>
+    <symbol id="i-palette" viewBox="0 0 24 24"><path d="M12 3.5a8.5 8.5 0 1 0 0 17c1.2 0 1.8-.9 1.4-1.9-.5-1.1.2-2.3 1.4-2.3h1.9a3.8 3.8 0 0 0 3.8-3.8C20.5 7 16.7 3.5 12 3.5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="7.8" cy="11.2" r="1.3" fill="currentColor"/><circle cx="10.6" cy="7.4" r="1.3" fill="currentColor"/><circle cx="15.2" cy="7.8" r="1.3" fill="currentColor"/></symbol>
+    <symbol id="i-image" viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="15" rx="3" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="9" cy="9.5" r="1.6" fill="currentColor"/><path d="m4.5 17.5 5-5 3.5 3.5 2.5-2.5 4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
+    <symbol id="i-story" viewBox="0 0 24 24"><rect x="6.5" y="2.8" width="11" height="18.4" rx="2.6" fill="none" stroke="currentColor" stroke-width="1.8"/><rect x="9.2" y="10" width="5.6" height="5.6" rx="1" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M10.5 5.6h3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v11m0 0-4-4m4 4 4-4M5 19.5h14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><path d="M5 7h14M10 7V5h4v2M7 7l.8 12h8.4L17 7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-rocket" viewBox="0 0 24 24"><path d="M13.5 4.5c3-1 5.5-1 6.2-.2.8.7.8 3.2-.2 6.2l-5.3 5.3-4-4zM10.2 11.8 7 11.3l-2.5 2.5 3.6.7M12.2 13.8l.5 3.2-2.5 2.5-.7-3.6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="15.5" cy="8.5" r="1.4" fill="currentColor"/></symbol>
+    <symbol id="i-instagram" viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="17" height="17" rx="5" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="17.2" cy="6.8" r="1.1" fill="currentColor"/></symbol>
+    <symbol id="i-telegram" viewBox="0 0 24 24"><path d="M20.5 4.5 3.6 11.1c-.8.3-.8 1.4 0 1.7l4.1 1.4 1.6 5c.2.7 1.1.9 1.6.4l2.4-2.3 4.3 3.2c.6.4 1.4.1 1.6-.6L21.9 5.9c.2-.9-.6-1.7-1.4-1.4z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="m7.7 14.2 9.3-6.7-7.6 8.2" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></symbol>
+    <symbol id="i-youtube" viewBox="0 0 24 24"><rect x="2.8" y="5.5" width="18.4" height="13" rx="4" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="m10.2 9.3 4.8 2.7-4.8 2.7z" fill="currentColor"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="M4.5 4.5 19.5 19.5M19.5 4.5l-6.2 6.6M10.7 12.9 4.5 19.5" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></symbol>
+    <symbol id="i-tiktok" viewBox="0 0 24 24"><path d="M13.5 3.5v11.2a3.6 3.6 0 1 1-3.6-3.6M13.5 3.5c.4 2.4 2.2 4.2 4.9 4.4" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-pin" viewBox="0 0 24 24"><path d="M9 3.8h6l-1 5.2 3.5 3.6H6.5L10 9zM12 12.6v7.6" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-chat" viewBox="0 0 24 24"><path d="M5 5.5h14a1.5 1.5 0 0 1 1.5 1.5v8.5A1.5 1.5 0 0 1 19 17H10l-4.5 3.5V17H5A1.5 1.5 0 0 1 3.5 15.5V7A1.5 1.5 0 0 1 5 5.5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M8 10h8M8 13h5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+    <symbol id="i-send" viewBox="0 0 24 24"><path d="M4.5 12 19.5 4.5l-4 15-3.6-6.3z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="m11.9 13.2 7.6-8.7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+    <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3M19.5 4.5v4h-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-heart" viewBox="0 0 24 24"><path d="M12 20s-7.5-4.6-7.5-10A4.3 4.3 0 0 1 12 7.4 4.3 4.3 0 0 1 19.5 10c0 5.4-7.5 10-7.5 10z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
+    <symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8.5" r="3.3" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M3 19.5c.7-3.2 3.2-5 6-5s5.3 1.8 6 5M15.5 5.6a3.2 3.2 0 0 1 0 6.1M18 14.8c1.6.7 2.7 2.4 3 4.7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+    <symbol id="i-gift" viewBox="0 0 24 24"><rect x="4" y="9" width="16" height="4" rx="1" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M5.5 13v7h13v-7M12 9v11M12 9c-1-3-5-4-5-1.5S12 9 12 9zm0 0c1-3 5-4 5-1.5S12 9 12 9z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
+    <symbol id="i-megaphone" viewBox="0 0 24 24"><path d="M4 10v4a1 1 0 0 0 1 1h2l8 4.5V4.5L7 9H5a1 1 0 0 0-1 1zM7 15l1.5 5M18.5 9a4 4 0 0 1 0 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/></symbol>
+    <symbol id="i-compass" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="m15.5 8.5-2 5-5 2 2-5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
+    <symbol id="i-mail" viewBox="0 0 24 24"><rect x="3.5" y="5.5" width="17" height="13" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="m4.5 7.5 7.5 5.5 7.5-5.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  </svg>
+
+  <!-- اسپلش کوتاه: فقط تا وقتی داده‌ها برسد -->
+  <div id="splash" class="layer">
+    <img src="/static/logo.jpg" class="splash-logo" alt="">
+    <p class="wordmark">UPLOADFLY</p>
+  </div>
+
+  <!-- خطا (مثلاً باز شدن خارج از تلگرام) -->
+  <div id="error" class="layer hidden">
+    <div class="card error-box">
+      <p class="wordmark">UPLOADFLY</p>
+      <p id="error-text"></p>
+    </div>
+  </div>
+
+  <!-- راهنمای اولین ورود: ۴ مرحله -->
+  <div id="onboarding" class="layer onboarding hidden" aria-roledescription="carousel">
+    <button id="ob-skip" class="text-btn ob-skip" data-i18n="ob_skip"></button>
+    <div class="ob-track" id="ob-track">
+      <section class="ob-slide">
+        <svg class="ob-art" viewBox="0 0 240 180" aria-hidden="true">
+          <rect class="a-card" x="34" y="40" width="88" height="108" rx="14"/>
+          <path class="a-line" d="M52 70h52M52 86h40M52 102h46"/>
+          <rect class="a-gold-soft" x="52" y="118" width="34" height="12" rx="6"/>
+          <path class="a-arrow" d="M132 94h34m0 0-10-10m10 10-10 10"/>
+          <rect class="a-card a-pop" x="168" y="66" width="48" height="56" rx="14"/>
+          <path class="a-gold-stroke a-pop" d="M184 98a7 7 0 0 0 10 0l4-4a7 7 0 0 0-10-10l-1.5 1.5M200 88a7 7 0 0 0-10 0l-4 4a7 7 0 0 0 10 10l1.5-1.5"/>
+        </svg>
+        <h2 data-i18n="ob1_title"></h2>
+        <p data-i18n="ob1_text"></p>
+      </section>
+      <section class="ob-slide">
+        <svg class="ob-art" viewBox="0 0 240 180" aria-hidden="true">
+          <rect class="a-card" x="70" y="56" width="100" height="92" rx="16"/>
+          <path class="a-line" d="M70 84h100"/>
+          <path class="a-ink" d="M98 56v-8a22 22 0 0 1 44 0v8" fill="none"/>
+          <path class="a-gold a-float" d="m120 98 4.6 9.5 10.4 1.4-7.6 7.3 1.9 10.3-9.3-5-9.3 5 1.9-10.3-7.6-7.3 10.4-1.4z"/>
+          <circle class="a-gold a-float-2" cx="44" cy="62" r="9"/>
+          <circle class="a-gold a-float-3" cx="196" cy="48" r="6"/>
+          <circle class="a-violet" cx="200" cy="128" r="10"/>
+        </svg>
+        <h2 data-i18n="ob2_title"></h2>
+        <p data-i18n="ob2_text"></p>
+      </section>
+      <section class="ob-slide">
+        <svg class="ob-art" viewBox="0 0 240 180" aria-hidden="true">
+          <rect class="a-card" x="40" y="34" width="110" height="120" rx="16"/>
+          <rect class="a-blur" x="54" y="48" width="82" height="62" rx="10"/>
+          <path class="a-line" d="M54 126h60M54 140h38"/>
+          <path class="a-shield" d="M178 62 154 71v18c0 15 10 26 24 31 14-5 24-16 24-31V71z"/>
+          <path class="a-check-path" d="m167 91 8 8 15-16"/>
+        </svg>
+        <h2 data-i18n="ob3_title"></h2>
+        <p data-i18n="ob3_text"></p>
+      </section>
+      <section class="ob-slide">
+        <svg class="ob-art" viewBox="0 0 240 180" aria-hidden="true">
+          <rect class="a-card" x="30" y="30" width="54" height="54" rx="12"/>
+          <rect class="a-card" x="92" y="30" width="54" height="54" rx="12"/>
+          <rect class="a-card" x="30" y="92" width="54" height="54" rx="12"/>
+          <rect class="a-card a-pop" x="92" y="92" width="54" height="54" rx="12"/>
+          <rect class="a-gold-soft" x="38" y="70" width="22" height="8" rx="4"/>
+          <rect class="a-gold-soft" x="100" y="70" width="22" height="8" rx="4"/>
+          <path class="a-arrow" d="M158 88c18-2 30-14 34-30m0 0-12 4m12-4 4 12"/>
+          <circle class="a-violet" cx="196" cy="118" r="12"/>
+          <circle class="a-violet" cx="176" cy="142" r="8"/>
+          <circle class="a-gold" cx="210" cy="146" r="7"/>
+        </svg>
+        <h2 data-i18n="ob4_title"></h2>
+        <p data-i18n="ob4_text"></p>
+      </section>
+    </div>
+    <div class="ob-foot">
+      <div class="ob-dots" id="ob-dots"><i></i><i></i><i></i><i></i></div>
+      <button id="ob-next" class="btn-accent" data-i18n="ob_next"></button>
+    </div>
+  </div>
+
+  <div id="app" class="hidden">
+    <header class="header">
+      <div class="hello">
+        <div id="hd-avatar" class="avatar sm"></div>
+        <div class="hello-text"><span class="wordmark small">UPLOADFLY</span><b id="hd-name"></b></div>
+      </div>
+      <span class="status-pill"><span id="status-dot" class="dot"></span><bdi id="status-text"></bdi></span>
+    </header>
+
+    <!-- خانه -->
+    <main id="page-home" class="page active">
+      <section id="home-seller" class="hidden">
+        <div id="hero-wallet" class="hero-card reveal" role="button" tabindex="0">
+          <div class="hero-top">
+            <div class="hero-balance">
+              <span class="hero-label" data-i18n="balance"></span>
+              <p class="balance num"><span id="st-balance">0</span><svg class="star"><use href="#i-star"/></svg></p>
+              <span id="st-withdraw" class="hero-sub"></span>
+            </div>
+            <svg class="ring" viewBox="0 0 100 100" aria-hidden="true">
+              <circle class="ring-track" cx="50" cy="50" r="40"/>
+              <circle id="ring-value" class="ring-value" cx="50" cy="50" r="40"/>
+              <text id="ring-text" class="ring-text" x="50" y="50" text-anchor="middle" dominant-baseline="central">0%</text>
+            </svg>
+          </div>
+          <div class="hero-stats">
+            <div><span data-i18n="today"></span><b class="num"><span id="st-today-sum">0</span><svg class="star"><use href="#i-star"/></svg></b><small id="st-today-n"></small></div>
+            <div><span data-i18n="total"></span><b class="num"><span id="st-total-sum">0</span><svg class="star"><use href="#i-star"/></svg></b><small id="st-total-n"></small></div>
+            <div><span data-i18n="links"></span><b class="num" id="st-links">0</b><small>&nbsp;</small></div>
+          </div>
+        </div>
+
+        <div id="suspended" class="card warn hidden" data-i18n="suspended"></div>
+
+        <div id="start-card" class="card start-card reveal hidden">
+          <div class="start-head">
+            <span class="kicon sm"><svg><use href="#i-rocket"/></svg></span>
+            <h2 data-i18n="start_title"></h2>
+            <small id="start-count" class="muted"></small>
+            <button id="start-close" class="icon-btn" aria-label="close"><svg><use href="#i-close"/></svg></button>
+          </div>
+          <div class="start-bar"><i id="start-bar"></i></div>
+          <div id="start-list" class="start-list"></div>
+        </div>
+
+        <div id="creator-box" class="reveal">
+          <h2 class="section-title" data-i18n="cr_tools"></h2>
+          <div class="card list">
+            <button id="cr-fans" class="row"><span class="kicon sm" style="--k: var(--color-accent); --k-soft: var(--color-accent-soft)"><svg><use href="#i-users"/></svg></span><span class="row-text"><span data-i18n="cr_fans"></span><small data-i18n="cr_fans_hint"></small></span><em id="cr-fans-n" class="row-value num"></em><svg class="chev"><use href="#i-chev"/></svg></button>
+            <button id="cr-broadcast" class="row"><span class="kicon sm" style="--k: var(--k-video); --k-soft: var(--k-video-soft)"><svg><use href="#i-megaphone"/></svg></span><span class="row-text"><span data-i18n="cr_broadcast"></span><small id="cr-broadcast-left" class="muted"></small></span><svg class="chev"><use href="#i-chev"/></svg></button>
+            <button id="cr-settings" class="row"><span class="kicon sm" style="--k: var(--k-photo); --k-soft: var(--k-photo-soft)"><svg><use href="#i-user"/></svg></span><span class="row-text"><span data-i18n="cr_settings"></span><small data-i18n="cr_settings_hint"></small></span><svg class="chev"><use href="#i-chev"/></svg></button>
+            <button id="cr-invite" class="row"><span class="kicon sm" style="--k: var(--color-star); --k-soft: var(--color-star-soft)"><svg><use href="#i-gift"/></svg></span><span class="row-text"><span data-i18n="cr_invite"></span><small data-i18n="cr_invite_row_hint"></small></span><em id="cr-invite-n" class="row-value num"></em><svg class="chev"><use href="#i-chev"/></svg></button>
+          </div>
+        </div>
+
+        <div id="sc-box" class="reveal">
+          <div class="section-head"><h2 class="section-title" data-i18n="my_showcases"></h2><button id="sc-new" class="text-btn"><svg><use href="#i-plus"/></svg><span data-i18n="sc_new_short"></span></button></div>
+          <div id="sc-cards" class="sc-cards"></div>
+        </div>
+
+        <div id="kinds-box" class="reveal">
+          <h2 class="section-title" data-i18n="file_types"></h2>
+          <div id="kind-tiles" class="tiles scroll-x"></div>
+        </div>
+
+        <div class="card chart-card reveal">
+          <span class="label" data-i18n="chart"></span>
+          <svg id="chart" viewBox="0 0 320 140" preserveAspectRatio="none">
+            <g id="chart-bars"></g>
+          </svg>
+          <div id="chart-labels" class="chart-labels"></div>
+        </div>
+
+        <div id="banners-seller" class="banners reveal" aria-roledescription="carousel"></div>
+
+      </section>
+
+      <section id="home-none" class="hidden">
+        <div class="hero-card none-hero reveal">
+          <span class="kicon big" style="--k: var(--color-star); --k-soft: var(--color-star-soft)"><svg><use href="#i-store"/></svg></span>
+          <h2 data-i18n="create_shop"></h2>
+          <p data-i18n="none_text"></p>
+          <button id="create-btn" class="btn-light wide" data-i18n="create_shop_btn"></button>
+        </div>
+        <div id="banners-none" class="banners reveal" aria-roledescription="carousel"></div>
+        <button id="home-explore" class="card explore-card reveal">
+          <span class="kicon" style="--k: var(--color-accent); --k-soft: var(--color-accent-soft)"><svg><use href="#i-compass"/></svg></span>
+          <span class="row-text"><b data-i18n="ex_title"></b><small data-i18n="ex_hint"></small></span>
+          <svg class="chev"><use href="#i-chev"/></svg>
+        </button>
+        <div class="card trust-card reveal">
+          <div class="trust-top"><span class="kicon" style="--k: var(--color-success); --k-soft: var(--color-success-soft)"><svg><use href="#i-shield"/></svg></span>
+            <div><b data-i18n="trust_title"></b><small data-i18n="trust_text"></small></div></div>
+          <div class="btn-row">
+            <button class="btn-soft js-verify"><svg><use href="#i-eye"/></svg><span data-i18n="trust_verify"></span></button>
+            <button class="btn-soft js-faq"><svg><use href="#i-book"/></svg><span data-i18n="faq"></span></button>
+          </div>
+        </div>
+        <div id="home-purchases-box" class="hidden reveal">
+          <div class="section-head"><h2 class="section-title" data-i18n="recent_purchases"></h2><button id="see-purchases" class="text-btn" data-i18n="see_all"></button></div>
+          <div id="home-purchases" class="card list"></div>
+        </div>
+      </section>
+    </main>
+
+    <!-- محصولات -->
+    <main id="page-products" class="page">
+      <div id="space-tabs" class="tabs hidden" role="tablist">
+        <button class="tab space-tab active" data-space="shop"><svg><use href="#i-store"/></svg><span data-i18n="space_shop"></span></button>
+        <button class="tab space-tab" data-space="free"><svg><use href="#i-link"/></svg><span data-i18n="space_free"></span></button>
+      </div>
+      <div class="page-head">
+        <h1 id="products-title" class="page-title" data-i18n="products"></h1>
+        <button id="view-toggle" class="icon-btn" aria-label="view">
+          <svg id="ic-grid"><use href="#i-grid"/></svg>
+          <svg id="ic-list" class="hidden"><use href="#i-list"/></svg>
+        </button>
+      </div>
+      <label class="search">
+        <svg><use href="#i-search"/></svg>
+        <input id="product-search" type="search" autocomplete="off" data-i18n-ph="search_ph">
+      </label>
+      <div id="status-tabs" class="tabs" role="tablist">
+        <button class="tab active" data-tab="active"><span data-i18n="tab_active"></span> <b id="cnt-active"></b></button>
+        <button class="tab" data-tab="draft"><span data-i18n="tab_draft"></span> <b id="cnt-draft"></b></button>
+        <button class="tab" data-tab="archived"><span data-i18n="tab_archived"></span> <b id="cnt-archived"></b></button>
+      </div>
+      <button id="kind-filter" class="filter-chip hidden"><span id="kind-filter-text"></span><svg><use href="#i-close"/></svg></button>
+      <div id="products" class="products list"></div>
+      <div id="products-empty" class="empty hidden">
+        <p id="empty-text"></p>
+        <button id="empty-upload" class="btn-accent"><svg><use href="#i-upload"/></svg><span data-i18n="upload"></span></button>
+      </div>
+      <div id="links" class="products list hidden"></div>
+      <div id="links-empty" class="empty hidden">
+        <span class="kicon big" style="--k: var(--color-accent); --k-soft: var(--color-accent-soft)"><svg><use href="#i-link"/></svg></span>
+        <p data-i18n="links_empty"></p>
+        <button id="links-upload" class="btn-accent"><svg><use href="#i-upload"/></svg><span data-i18n="new_link"></span></button>
+      </div>
+    </main>
+
+    <!-- کیف پول -->
+    <main id="page-wallet" class="page">
+      <div class="page-head"><h1 class="page-title" data-i18n="wallet_title"></h1></div>
+      <div class="hero-card">
+        <div class="hero-top">
+          <div class="hero-balance">
+            <span class="hero-label" data-i18n="balance"></span>
+            <p class="balance num"><span id="w-balance">0</span><svg class="star"><use href="#i-star"/></svg></p>
+            <span id="w-sub" class="hero-sub"></span>
+          </div>
+          <svg class="ring" viewBox="0 0 100 100" aria-hidden="true">
+            <circle class="ring-track" cx="50" cy="50" r="40"/>
+            <circle id="w-ring" class="ring-value" cx="50" cy="50" r="40"/>
+            <text id="w-ring-text" class="ring-text" x="50" y="50" text-anchor="middle" dominant-baseline="central">0%</text>
+          </svg>
+        </div>
+        <div class="hero-stats two">
+          <div><span data-i18n="wallet_available"></span><b class="num"><span id="w-available">0</span><svg class="star"><use href="#i-star"/></svg></b><small data-i18n="wallet_available_hint"></small></div>
+          <div><span data-i18n="wallet_pending"></span><b class="num"><span id="w-pending">0</span><svg class="star"><use href="#i-star"/></svg></b><small id="w-unlock"></small></div>
+        </div>
+      </div>
+
+      <div class="card trust-card">
+          <div class="trust-top"><span class="kicon" style="--k: var(--color-success); --k-soft: var(--color-success-soft)"><svg><use href="#i-shield"/></svg></span>
+            <div><b data-i18n="trust_title"></b><small data-i18n="trust_text"></small></div></div>
+          <div class="btn-row">
+            <button class="btn-soft js-verify"><svg><use href="#i-eye"/></svg><span data-i18n="trust_verify"></span></button>
+            <button class="btn-soft js-faq"><svg><use href="#i-book"/></svg><span data-i18n="faq"></span></button>
+          </div>
+        </div>
+
+      <h2 class="section-title" data-i18n="cr_earnings"></h2>
+      <div class="card earn-card">
+        <div class="earn-row"><span class="kicon sm" style="--k: var(--k-photo); --k-soft: var(--k-photo-soft)"><svg><use href="#i-lock"/></svg></span><span data-i18n="cr_earn_sales"></span><b class="num"><span id="we-sales">0</span> ★</b><small id="we-sales-m" class="muted"></small></div>
+        <div class="earn-row"><span class="kicon sm" style="--k: var(--color-accent); --k-soft: var(--color-accent-soft)"><svg><use href="#i-calendar"/></svg></span><span data-i18n="cr_earn_subs"></span><b class="num"><span id="we-subs">0</span> ★</b><small id="we-subs-m" class="muted"></small></div>
+        <div class="earn-row"><span class="kicon sm" style="--k: var(--color-star); --k-soft: var(--color-star-soft)"><svg><use href="#i-heart"/></svg></span><span data-i18n="cr_earn_tips"></span><b class="num"><span id="we-tips">0</span> ★</b><small id="we-tips-m" class="muted"></small></div>
+      </div>
+
+      <div id="top-box" class="hidden">
+        <h2 class="section-title" data-i18n="top_title"></h2>
+        <div id="top-list" class="card list"></div>
+      </div>
+
+      <h2 class="section-title" data-i18n="withdraw_title"></h2>
+      <div id="w-withdraw" class="card withdraw-card"></div>
+      <details class="card cashout">
+        <summary><span class="kicon sm" style="--k: var(--color-star); --k-soft: var(--color-star-soft)"><svg><use href="#i-wallet"/></svg></span><b data-i18n="cashout_title"></b><svg class="chev"><use href="#i-chev"/></svg></summary>
+        <div class="cashout-body" data-i18n-html="cashout_body"></div>
+      </details>
+
+      <h2 class="section-title" data-i18n="wallet_sales"></h2>
+      <div id="w-sales" class="card list"></div>
+      <p id="w-sales-empty" class="muted small center hidden" data-i18n="wallet_no_sales"></p>
+
+      <h2 class="section-title" data-i18n="premium_title"></h2>
+      <p class="muted small section-hint" data-i18n="premium_hint"></p>
+      <div id="w-premium" class="premium-row"></div>
+
+    </main>
+
+    <!-- خریدها -->
+    <main id="page-purchases" class="page">
+      <div class="page-head"><h1 class="page-title" data-i18n="purchases_title"></h1></div>
+      <div id="pf-memberships-box" class="hidden">
+        <h2 class="section-title" data-i18n="my_memberships"></h2>
+        <div id="pf-memberships" class="card list"></div>
+      </div>
+      <div id="pf-purchases" class="card list"></div>
+      <div id="pf-purchases-empty" class="empty hidden">
+        <span class="kicon big" style="--k: var(--color-accent); --k-soft: var(--color-accent-soft)"><svg><use href="#i-bag"/></svg></span>
+        <p data-i18n="no_purchases"></p>
+      </div>
+    </main>
+
+    <!-- ویترین فروشگاه -->
+    <main id="page-store" class="page">
+      <div class="card profile-card">
+        <div id="store-cover" class="cover"></div>
+        <div class="profile-body">
+          <div id="store-avatar" class="avatar xl"></div>
+          <span id="store-badge" class="sc-badge"></span>
+          <h1 id="store-name"></h1>
+          <p id="store-meta" class="muted small"></p>
+          <p id="store-desc" class="store-desc hidden"></p>
+          <div id="store-social" class="social-row hidden"></div>
+          <div id="store-actions" class="store-actions hidden">
+            <button id="store-tip" class="btn-soft"><svg class="star"><use href="#i-star"/></svg><span data-i18n="tip_btn"></span></button>
+            <button id="store-message" class="btn-soft"><svg><use href="#i-chat"/></svg><span data-i18n="message_btn"></span></button>
+          </div>
+          <div class="profile-stats">
+            <div><b id="store-n-items" class="num">0</b><span data-i18n="sc_stat_items"></span></div>
+            <div id="store-members-box"><b id="store-n-members" class="num">0</b><span data-i18n="sc_stat_members"></span></div>
+            <div><b id="store-n-sales" class="num">0</b><span data-i18n="sc_stat_sales"></span></div>
+            <div id="store-rating-box" class="hidden"><b class="num rating-num"><svg class="star"><use href="#i-star"/></svg><span id="store-rating">0</span></b><span data-i18n="sc_stat_rating"></span></div>
+          </div>
+          <div id="store-join-box" class="join-card hidden">
+            <span class="join-label" data-i18n="sc_subscription"></span>
+            <button id="store-join" class="btn-accent wide join-btn"></button>
+            <button id="store-trial" class="btn-soft wide hidden"><svg><use href="#i-gift"/></svg><span id="store-trial-text"></span></button>
+            <div id="store-bundles" class="bundles hidden"></div>
+            <button id="join-stars-help" class="stars-help"><svg class="star"><use href="#i-star"/></svg><span data-i18n="stars_help_btn"></span></button>
+          </div>
+          <div id="store-member" class="member-box hidden">
+            <span class="tag"><svg><use href="#i-check"/></svg><span data-i18n="sc_you_member"></span></span>
+            <small id="store-member-note" class="muted"></small>
+            <button id="store-refund" class="text-btn hidden" data-i18n="sc_refund"></button>
+            <button id="store-renewal" class="text-btn hidden"></button>
+            <button id="store-subscribe" class="btn-accent hidden"></button>
+          </div>
+        </div>
+      </div>
+      <div id="store-owner-tools" class="owner-tools hidden">
+        <button id="store-look" class="btn-soft"><svg><use href="#i-palette"/></svg><span data-i18n="look_btn"></span></button>
+        <button id="store-story" class="btn-soft"><svg><use href="#i-story"/></svg><span data-i18n="story_btn"></span></button>
+      </div>
+      <div id="store-others" class="others hidden">
+        <h2 class="section-title" data-i18n="sc_others"></h2>
+        <div id="store-others-list" class="chips scroll-x"></div>
+      </div>
+      <div id="store-owner-note" class="card note hidden" data-i18n="store_owner_note"></div>
+      <div id="store-suspended" class="card warn hidden" data-i18n="store_suspended"></div>
+      <div id="store-tabs" class="tabs of-tabs">
+        <button class="tab active" data-v="feed"><svg><use href="#i-list"/></svg><span data-i18n="tab_posts"></span> <b id="store-n-posts"></b></button>
+        <button class="tab" data-v="grid"><svg><use href="#i-grid"/></svg><span data-i18n="tab_media"></span></button>
+      </div>
+      <div id="store-cats" class="chips scroll-x"></div>
+      <div id="store-items" class="products grid"></div>
+      <div id="store-empty" class="empty hidden"><p data-i18n="store_empty"></p></div>
+      <button id="store-made" class="made-with"><svg><use href="#i-upload"/></svg><span data-i18n="made_with"></span></button>
+    </main>
+
+    <!-- پشتیبانی: سؤالات متداول، بعد چت مستقیم با حساب پشتیبانی یا ایمیل -->
+    <main id="page-support" class="page">
+      <div class="page-head"><h1 class="page-title" data-i18n="support"></h1></div>
+      <label class="search"><svg><use href="#i-search"/></svg><input id="help-q" type="search" autocomplete="off" data-i18n-ph="help_search"></label>
+      <div id="help-cats" class="chips scroll-x"></div>
+      <div id="help-list" class="card faq help-list"></div>
+      <div id="help-none" class="empty hidden"><p data-i18n="help_none"></p></div>
+      <div class="card contact-card">
+        <div class="contact-head"><span class="kicon"><svg><use href="#i-chat"/></svg></span>
+          <div><b data-i18n="contact_title"></b><small data-i18n="contact_text"></small></div></div>
+        <div class="btn-row">
+          <button id="contact-chat" class="btn-accent hidden"><svg><use href="#i-chat"/></svg><span data-i18n="contact_chat"></span></button>
+          <button id="contact-email" class="btn-soft hidden"><svg><use href="#i-mail"/></svg><span data-i18n="contact_email"></span></button>
+        </div>
+        <p id="contact-soon" class="muted small hidden" data-i18n="contact_soon"></p>
+        <div class="contact-id"><span><small data-i18n="contact_id"></small><b id="contact-id" class="num"></b></span>
+          <button id="contact-id-copy" class="btn-soft small-btn"><svg><use href="#i-link"/></svg><span data-i18n="copy"></span></button></div>
+      </div>
+    </main>
+
+    <!-- تنظیمات صفحه‌ی سازنده -->
+    <main id="page-creator" class="page">
+      <div class="page-head"><h1 class="page-title" data-i18n="cr_settings"></h1></div>
+      <p class="muted small section-hint" data-i18n="cr_settings_intro"></p>
+      <div class="card form-card">
+        <h3 class="ed-label"><span data-i18n="cr_bio"></span> <small id="cr-bio-count" class="muted"></small></h3>
+        <textarea id="cr-bio" class="text-input" rows="3" maxlength="300" data-i18n-ph="cr_bio_ph"></textarea>
+        <h3 class="ed-label" data-i18n="cr_category"></h3>
+        <div id="cr-cats" class="chips"></div>
+        <label class="switch-row">
+          <span><b data-i18n="cr_listed"></b><small data-i18n="cr_listed_hint"></small></span>
+          <input id="cr-listed" type="checkbox"><i class="switch"></i>
+        </label>
+      </div>
+      <h2 class="section-title" data-i18n="cr_messages"></h2>
+      <div class="card form-card">
+        <h3 class="ed-label" data-i18n="cr_dm_mode"></h3>
+        <div id="cr-dm" class="seg wide-seg">
+          <button data-v="all" data-i18n="cr_dm_all"></button>
+          <button data-v="fans" data-i18n="cr_dm_fans"></button>
+          <button data-v="off" data-i18n="cr_dm_off"></button>
+        </div>
+        <p class="muted small" data-i18n="cr_dm_hint"></p>
+        <h3 class="ed-label"><span data-i18n="cr_welcome"></span></h3>
+        <p class="muted small" data-i18n="cr_welcome_hint"></p>
+        <textarea id="cr-welcome" class="text-input" rows="3" maxlength="1000" data-i18n-ph="cr_welcome_ph"></textarea>
+      </div>
+      <h2 class="section-title" data-i18n="cr_protect"></h2>
+      <div class="card form-card">
+        <label class="switch-row">
+          <span><b data-i18n="cr_watermark"></b><small data-i18n="cr_watermark_hint"></small></span>
+          <input id="cr-watermark" type="checkbox"><i class="switch"></i>
+        </label>
+      </div>
+      <h2 class="section-title" data-i18n="cr_invite"></h2>
+      <div class="card invite-card">
+        <p class="muted small" data-i18n="cr_invite_hint"></p>
+        <code id="cr-ref-link" class="done-link"></code>
+        <p id="cr-ref-stats" class="small"></p>
+        <div class="btn-row">
+          <button id="cr-ref-copy" class="btn-accent"><svg><use href="#i-link"/></svg><span data-i18n="copy_link"></span></button>
+          <button id="cr-ref-share" class="btn-soft"><svg><use href="#i-share"/></svg><span data-i18n="share"></span></button>
+        </div>
+      </div>
+    </main>
+
+    <!-- فن‌ها -->
+    <main id="page-fans" class="page">
+      <div class="page-head"><h1 class="page-title" data-i18n="cr_fans"></h1></div>
+      <div id="fans-counts" class="fans-counts"></div>
+      <button id="fans-broadcast" class="btn-accent wide"><svg><use href="#i-megaphone"/></svg><span data-i18n="cr_broadcast"></span></button>
+      <div id="fans-list" class="card list"></div>
+      <div id="fans-empty" class="empty hidden">
+        <span class="kicon big" style="--k: var(--color-accent); --k-soft: var(--color-accent-soft)"><svg><use href="#i-users"/></svg></span>
+        <p data-i18n="fans_empty"></p>
+      </div>
+    </main>
+
+    <!-- کشف سازنده‌ها -->
+    <main id="page-explore" class="page">
+      <div class="page-head"><h1 class="page-title" data-i18n="ex_title"></h1></div>
+      <p class="muted small section-hint" data-i18n="ex_intro"></p>
+      <label class="search"><svg><use href="#i-search"/></svg><input id="ex-q" type="search" autocomplete="off" data-i18n-ph="ex_search"></label>
+      <div id="ex-cats" class="chips scroll-x"></div>
+      <div id="ex-list" class="ex-list"></div>
+      <div id="ex-empty" class="empty hidden">
+        <span class="kicon big" style="--k: var(--color-accent); --k-soft: var(--color-accent-soft)"><svg><use href="#i-compass"/></svg></span>
+        <p data-i18n="ex_empty"></p>
+      </div>
+    </main>
+
+    <!-- پروفایل -->
+    <main id="page-profile" class="page">
+      <div class="card profile-head reveal">
+        <div id="pf-avatar" class="avatar lg"></div>
+        <h1 id="pf-name"></h1>
+        <p id="pf-username" class="muted"></p>
+      </div>
+
+      <div id="pf-shop" class="hidden">
+        <h2 class="section-title" data-i18n="my_shop"></h2>
+        <div class="card list">
+          <button id="pf-open-bot" class="row"><span class="kicon sm" style="--k: var(--color-accent); --k-soft: var(--color-accent-soft)"><svg><use href="#i-bot"/></svg></span><span id="pf-bot"></span><svg class="chev"><use href="#i-chev"/></svg></button>
+          <button id="pf-showcases" class="row"><span class="kicon sm" style="--k: var(--k-photo); --k-soft: var(--k-photo-soft)"><svg><use href="#i-store"/></svg></span><span data-i18n="my_showcases"></span><svg class="chev"><use href="#i-chev"/></svg></button>
+          <button id="pf-withdraw" class="row"><span class="kicon sm" style="--k: var(--color-star); --k-soft: var(--color-star-soft)"><svg><use href="#i-wallet"/></svg></span><span data-i18n="withdraw"></span><svg class="chev"><use href="#i-chev"/></svg></button>
+          <button id="pf-disconnect" class="row danger"><span class="kicon sm" style="--k: var(--color-danger); --k-soft: var(--color-danger-soft)"><svg><use href="#i-power"/></svg></span><span data-i18n="disconnect"></span></button>
+        </div>
+      </div>
+
+
+      <h2 class="section-title" data-i18n="settings"></h2>
+      <div class="card list">
+        <button id="pf-explore" class="row"><span class="kicon sm" style="--k: var(--color-accent); --k-soft: var(--color-accent-soft)"><svg><use href="#i-compass"/></svg></span><span data-i18n="ex_title"></span><svg class="chev"><use href="#i-chev"/></svg></button>
+        <button id="pf-support" class="row"><span class="kicon sm" style="--k: var(--k-audio); --k-soft: var(--k-audio-soft)"><svg><use href="#i-chat"/></svg></span><span data-i18n="support"></span><svg class="chev"><use href="#i-chev"/></svg></button>
+        <button id="pf-lang" class="row"><span class="kicon sm" style="--k: var(--k-voice); --k-soft: var(--k-voice-soft)"><svg><use href="#i-globe"/></svg></span><span data-i18n="language"></span><em id="pf-lang-value" class="row-value"></em><svg class="chev"><use href="#i-chev"/></svg></button>
+        <button id="pf-guide" class="row"><span class="kicon sm" style="--k: var(--k-document); --k-soft: var(--k-document-soft)"><svg><use href="#i-book"/></svg></span><span data-i18n="guide"></span><svg class="chev"><use href="#i-chev"/></svg></button>
+        <button id="pf-home-screen" class="row hidden"><span class="kicon sm" style="--k: var(--k-text); --k-soft: var(--k-text-soft)"><svg><use href="#i-phone"/></svg></span><span data-i18n="add_home"></span><svg class="chev"><use href="#i-chev"/></svg></button>
+        <button id="pf-faq" class="row js-faq"><span class="kicon sm" style="--k: var(--color-success); --k-soft: var(--color-success-soft)"><svg><use href="#i-shield"/></svg></span><span data-i18n="faq"></span><svg class="chev"><use href="#i-chev"/></svg></button>
+        <button id="pf-rules" class="row"><span class="kicon sm" style="--k: var(--k-video); --k-soft: var(--k-video-soft)"><svg><use href="#i-shield"/></svg></span><span data-i18n="rules"></span><svg class="chev"><use href="#i-chev"/></svg></button>
+        <div id="pf-rules-box" class="withdraw rules hidden"><p data-i18n="rules_text"></p></div>
+      </div>
+    </main>
+
+    <nav class="nav-dock">
+      <button class="nav-item active" data-page="page-home"><svg><use href="#i-home"/></svg><span data-i18n="nav_home"></span></button>
+      <button class="nav-item" data-page="page-products"><svg><use href="#i-grid"/></svg><span data-i18n="nav_products"></span></button>
+      <button id="fab" class="fab" aria-label="upload"><svg><use href="#i-upload"/></svg></button>
+      <button class="nav-item" data-page="page-purchases"><svg><use href="#i-bag"/></svg><span data-i18n="nav_purchases"></span></button>
+      <button class="nav-item" data-page="page-profile"><svg><use href="#i-user"/></svg><span data-i18n="nav_profile"></span></button>
+    </nav>
+  </div>
+
+  <!-- «خودت در تلگرام چک کن» -->
+  <section id="verify-sheet" class="sheet small-sheet" aria-modal="true" role="dialog">
+    <div class="sheet-handle"></div>
+    <h2 class="sheet-title" data-i18n="verify_title"></h2>
+    <ol class="steps">
+      <li id="verify-step1"></li>
+      <li data-i18n="verify_step2"></li>
+      <li data-i18n="verify_step3"></li>
+    </ol>
+    <p class="muted small" data-i18n="verify_note"></p>
+    <button id="verify-open" class="btn-accent wide hidden"><svg><use href="#i-bot"/></svg><span data-i18n="verify_open"></span></button>
+  </section>
+
+  <!-- پرسش‌های رایج درباره‌ی پول -->
+  <section id="faq-sheet" class="sheet small-sheet" aria-modal="true" role="dialog">
+    <div class="sheet-handle"></div>
+    <h2 class="sheet-title" data-i18n="faq"></h2>
+    <div class="faq card list">
+      <details><summary data-i18n="faq_q1"></summary><p data-i18n="faq_a1"></p></details>
+      <details><summary data-i18n="faq_q2"></summary><p data-i18n="faq_a2"></p></details>
+      <details><summary data-i18n="faq_q3"></summary><p data-i18n="faq_a3"></p></details>
+      <details><summary data-i18n="faq_q4"></summary><p data-i18n="faq_a4"></p></details>
+      <details><summary data-i18n="faq_q5"></summary><p data-i18n="faq_a5"></p></details>
+    </div>
+    <button id="faq-tos" class="text-btn wide" data-i18n="faq_tos"></button>
+  </section>
+
+  <!-- یک لینک رایگان: کپی، اشتراک، باز کردن، خاموش کردن -->
+  <section id="link-sheet" class="sheet small-sheet" aria-modal="true" role="dialog">
+    <div class="sheet-handle"></div>
+    <div class="link-head">
+      <div id="ls-thumb" class="thumb ls-thumb"></div>
+      <div class="ls-info"><h2 id="ls-title"></h2><p id="ls-meta" class="muted small"></p></div>
+    </div>
+    <div class="link-box"><code id="ls-link"></code>
+      <div class="btn-row">
+        <button id="ls-copy" class="btn-soft"><svg><use href="#i-link"/></svg><span data-i18n="copy_link"></span></button>
+        <button id="ls-share" class="btn-soft"><svg><use href="#i-share"/></svg><span data-i18n="share"></span></button>
+      </div>
+    </div>
+    <button id="ls-open" class="btn-soft wide ls-open"><svg><use href="#i-bot"/></svg><span data-i18n="link_open"></span></button>
+    <button id="ls-disable" class="text-btn wide danger-text"><svg><use href="#i-power"/></svg><span data-i18n="link_disable"></span></button>
+  </section>
+
+  <!-- استایل ویترین (مثل Linktree): فقط گزینه‌های آماده، با پیش‌نمایش زنده‌ی خود ویترین پشت برگه -->
+  <section id="look-sheet" class="sheet small-sheet" aria-modal="true" role="dialog">
+    <div class="sheet-handle"></div>
+    <h2 class="sheet-title" data-i18n="look_title"></h2>
+    <div id="look-tabs" class="tabs">
+      <button class="tab active" data-t="theme" data-i18n="lt_theme"></button>
+      <button class="tab" data-t="cards" data-i18n="lt_cards"></button>
+      <button class="tab" data-t="layout" data-i18n="lt_layout"></button>
+      <button class="tab" data-t="parts" data-i18n="lt_parts"></button>
+    </div>
+
+    <div class="look-panel on" data-p="theme">
+      <span class="look-label" data-i18n="look_presets"></span>
+      <div id="look-presets" class="preset-row"></div>
+      <span class="look-label" data-i18n="look_theme"></span>
+      <div id="look-themes" class="theme-grid"></div>
+      <span class="look-label" data-i18n="look_accent"></span>
+      <div id="look-accents" class="accent-row"></div>
+      <span class="look-label" data-i18n="look_font"></span>
+      <div id="look-font" class="opt-grid"></div>
+      <div class="look-media card">
+        <div class="look-row">
+          <span id="look-cover-thumb" class="lr-thumb"><svg><use href="#i-image"/></svg></span>
+          <span class="lr-text"><b data-i18n="look_cover"></b><small data-i18n="look_cover_hint"></small></span>
+          <button id="look-cover-del" class="icon-btn hidden" aria-label="remove"><svg><use href="#i-trash"/></svg></button>
+          <button id="look-cover-pick" class="btn-soft" data-i18n="look_pick"></button>
+        </div>
+        <div class="look-row">
+          <span id="look-logo-thumb" class="lr-thumb round"><svg><use href="#i-image"/></svg></span>
+          <span class="lr-text"><b data-i18n="look_logo"></b><small data-i18n="look_logo_hint"></small></span>
+          <button id="look-logo-del" class="icon-btn hidden" aria-label="remove"><svg><use href="#i-trash"/></svg></button>
+          <button id="look-logo-pick" class="btn-soft" data-i18n="look_pick"></button>
+        </div>
+        <div class="look-row">
+          <span id="look-background-thumb" class="lr-thumb tall"><svg><use href="#i-image"/></svg></span>
+          <span class="lr-text"><b data-i18n="look_background"></b><small data-i18n="look_background_hint"></small></span>
+          <button id="look-background-del" class="icon-btn hidden" aria-label="remove"><svg><use href="#i-trash"/></svg></button>
+          <button id="look-background-pick" class="btn-soft" data-i18n="look_pick"></button>
+        </div>
+      </div>
+    </div>
+
+    <div class="look-panel" data-p="cards">
+      <span class="look-label" data-i18n="look_card"></span>
+      <div id="look-card" class="opt-grid"></div>
+      <span class="look-label" data-i18n="look_buttons"></span>
+      <div id="look-buttons" class="opt-grid three"></div>
+    </div>
+
+    <div class="look-panel" data-p="layout">
+      <span class="look-label" data-i18n="look_header"></span>
+      <div id="look-header" class="opt-grid two"></div>
+      <span class="look-label" data-i18n="look_layout"></span>
+      <div id="look-layout" class="opt-grid"></div>
+      <span class="look-label" data-i18n="look_pinned"></span>
+      <div id="look-pin" class="pin-pick"></div>
+    </div>
+
+    <div class="look-panel" data-p="parts">
+      <div id="look-switches" class="card look-switches"></div>
+      <span class="look-label" data-i18n="look_social"></span>
+      <div id="look-social" class="social-edit"></div>
+      <p class="muted small" data-i18n="look_social_hint"></p>
+    </div>
+
+    <p class="muted small" data-i18n="look_saved_hint"></p>
+    <input id="look-file" type="file" accept="image/*" class="hidden">
+  </section>
+
+  <!-- کارت استوری اینستاگرام -->
+  <section id="story-sheet" class="sheet small-sheet" aria-modal="true" role="dialog">
+    <div class="sheet-handle"></div>
+    <h2 class="sheet-title" data-i18n="story_title"></h2>
+    <img id="story-img" class="story-preview" alt="">
+    <div class="btn-row">
+      <button id="story-save" class="btn-accent"><svg><use href="#i-download"/></svg><span data-i18n="story_save"></span></button>
+      <button id="story-copy" class="btn-soft"><svg><use href="#i-link"/></svg><span data-i18n="copy_link"></span></button>
+    </div>
+    <button id="story-tg" class="btn-soft wide hidden"><svg><use href="#i-story"/></svg><span data-i18n="story_tg"></span></button>
+    <ol class="story-steps"><li data-i18n="story_step1"></li><li data-i18n="story_step2"></li><li data-i18n="story_step3"></li></ol>
+  </section>
+
+  <!-- انتخاب زبان (برگه‌ی کوچک) -->
+  <section id="lang-sheet" class="sheet small-sheet" aria-modal="true" role="dialog">
+    <div class="sheet-handle"></div>
+    <h2 class="sheet-title" data-i18n="language"></h2>
+    <div id="pf-langs" class="card list"></div>
+  </section>
+
+  <!-- ویرایشگر محصول (برگه‌ی پایین) -->
+  <div id="overlay" class="overlay"></div>
+  <section id="editor" class="sheet" aria-modal="true" role="dialog">
+    <div class="sheet-handle"></div>
+    <div class="ed-top">
+      <div id="ed-thumb" class="ed-thumb"></div>
+      <div class="ed-head">
+        <div id="ed-status" class="badge"></div>
+        <h2 id="ed-name"></h2>
+        <p id="ed-specs" class="muted small"></p>
+      </div>
+    </div>
+    <div id="ed-stats" class="ed-stats">
+      <div><b id="ed-views" class="num">0</b><span data-i18n="views"></span></div>
+      <div><b id="ed-sales" class="num">0</b><span data-i18n="sales_word"></span></div>
+      <div><b class="num gold"><span id="ed-revenue">0</span> ★</b><span data-i18n="revenue"></span></div>
+      <div id="ed-reports-box" class="hidden"><b id="ed-reports" class="num red">0</b><span data-i18n="reports"></span></div>
+    </div>
+    <p id="ed-preview" class="quote hidden"></p>
+
+    <h3 class="ed-label" data-i18n="title_label"></h3>
+    <input id="ed-title" class="text-input" type="text" maxlength="80" autocomplete="off">
+    <h3 class="ed-label"><span data-i18n="desc_label"></span> <small id="ed-desc-count" class="muted"></small></h3>
+    <textarea id="ed-desc" class="text-input" rows="3" maxlength="500"></textarea>
+    <h3 class="ed-label" data-i18n="category_label"></h3>
+    <div id="ed-cats" class="chips"></div>
+
+    <h3 class="ed-label" data-i18n="price"></h3>
+    <div id="ed-chips" class="chips"></div>
+    <p id="ed-cap" class="muted small"></p>
+    <div class="price-input">
+      <input id="ed-price" type="number" inputmode="numeric" min="0" step="1" placeholder="0">
+      <svg class="star"><use href="#i-star"/></svg>
+    </div>
+
+    <div class="date-row ed-date">
+      <span><b data-i18n="expiry_label"></b><small data-i18n="ed_expiry_hint"></small></span>
+      <div class="date-field"><input id="ed-expiry" type="date"><button id="ed-expiry-clear" class="text-btn" data-i18n="expiry_none"></button></div>
+    </div>
+    <h3 class="ed-label"><span data-i18n="ed_showcases"></span></h3>
+    <div id="ed-showcases" class="chips"></div>
+    <p class="muted small ed-hint" data-i18n="ed_showcases_hint"></p>
+    <label class="switch-row">
+      <span><b data-i18n="sensitive"></b><small data-i18n="sensitive_hint"></small></span>
+      <input id="ed-sensitive" type="checkbox"><i class="switch"></i>
+    </label>
+    <label class="switch-row" id="ed-save-row">
+      <span><b data-i18n="allow_save"></b><small data-i18n="allow_save_hint"></small></span>
+      <input id="ed-save" type="checkbox"><i class="switch"></i>
+    </label>
+
+    <div id="ed-schedule" class="date-row ed-date hidden">
+      <span><b data-i18n="ed_schedule"></b><small id="ed-schedule-note" data-i18n="ed_schedule_hint"></small></span>
+      <div class="date-field"><input id="ed-schedule-at" type="datetime-local"><button id="ed-schedule-btn" class="text-btn" data-i18n="ed_schedule_btn"></button></div>
+    </div>
+    <button id="ed-notify" class="btn-soft wide hidden"><svg><use href="#i-megaphone"/></svg><span id="ed-notify-text" data-i18n="ed_notify"></span></button>
+    <div id="ed-link-box" class="link-box hidden">
+      <code id="ed-link"></code>
+      <div class="btn-row">
+        <button id="ed-copy" class="btn-soft"><svg><use href="#i-link"/></svg><span data-i18n="copy_link"></span></button>
+        <button id="ed-share" class="btn-soft"><svg><use href="#i-share"/></svg><span data-i18n="share"></span></button>
+      </div>
+    </div>
+    <button id="ed-archive" class="text-btn wide hidden"></button>
+  </section>
+
+  <!-- ساخت ویترین (۳ صفحه‌ی ساده) و مدیریت ویترین (فهرست تنظیمات) -->
+  <section id="sc-editor" class="sheet" aria-modal="true" role="dialog">
+    <div class="sheet-handle"></div>
+    <div class="wiz-head">
+      <h2 id="sce-heading" class="sheet-title"></h2>
+      <div id="sce-dots" class="wiz-dots"><i></i><i></i><i></i></div>
+    </div>
+
+    <!-- مدیریت ویترین ساخته‌شده -->
+    <div id="sce-manage" class="sce-page">
+      <div id="sce-stats" class="sce-stats hidden">
+        <div><b id="sces-members" class="num">0</b><span data-i18n="sce_stat_members"></span></div>
+        <div><b class="num gold"><span id="sces-month">0</span> ★</b><span data-i18n="sce_stat_month"></span></div>
+        <div><b class="num"><span id="sces-total">0</span> ★</b><span data-i18n="sce_stat_total"></span></div>
+      </div>
+      <p id="sces-canceled" class="muted small center hidden"></p>
+      <div id="sce-archived-note" class="card warn hidden" data-i18n="sce_archived_note"></div>
+      <div class="bio-card">
+        <span class="kicon" style="--k: var(--color-accent); --k-soft: var(--color-accent-soft)"><svg><use href="#i-link"/></svg></span>
+        <div class="bio-text"><b data-i18n="sc_bio_link"></b><code id="sce-link"></code></div>
+        <button id="sce-copy" class="btn-accent bio-copy" data-i18n="copy_link"></button>
+      </div>
+      <div class="card list">
+        <button class="row" data-go="name"><span class="kicon sm" style="--k: var(--k-document); --k-soft: var(--k-document-soft)"><svg><use href="#i-book"/></svg></span><span data-i18n="sce_row_name"></span><em id="sce-v-name" class="row-value"></em><svg class="chev"><use href="#i-chev"/></svg></button>
+        <button class="row" data-go="access"><span class="kicon sm" style="--k: var(--color-star); --k-soft: var(--color-star-soft)"><svg><use href="#i-star"/></svg></span><span data-i18n="sce_row_access"></span><em id="sce-v-access" class="row-value"></em><svg class="chev"><use href="#i-chev"/></svg></button>
+        <button class="row" data-go="items"><span class="kicon sm" style="--k: var(--k-photo); --k-soft: var(--k-photo-soft)"><svg><use href="#i-grid"/></svg></span><span data-i18n="sce_row_items"></span><em id="sce-v-items" class="row-value"></em><svg class="chev"><use href="#i-chev"/></svg></button>
+        <button class="row" data-go="settings"><span class="kicon sm" style="--k: var(--k-voice); --k-soft: var(--k-voice-soft)"><svg><use href="#i-lock"/></svg></span><span data-i18n="sce_row_settings"></span><em id="sce-v-settings" class="row-value"></em><svg class="chev"><use href="#i-chev"/></svg></button>
+      </div>
+      <div class="card list">
+        <button id="sce-preview" class="row"><span class="kicon sm"><svg><use href="#i-eye"/></svg></span><span data-i18n="sc_preview"></span><svg class="chev"><use href="#i-chev"/></svg></button>
+        <button id="sce-share" class="row"><span class="kicon sm"><svg><use href="#i-share"/></svg></span><span data-i18n="share"></span><svg class="chev"><use href="#i-chev"/></svg></button>
+        <button id="sce-story" class="row"><span class="kicon sm" style="--k: var(--k-animation); --k-soft: var(--k-animation-soft)"><svg><use href="#i-story"/></svg></span><span data-i18n="story_title"></span><svg class="chev"><use href="#i-chev"/></svg></button>
+        <button id="sce-look" class="row"><span class="kicon sm" style="--k: var(--k-photo); --k-soft: var(--k-photo-soft)"><svg><use href="#i-palette"/></svg></span><span data-i18n="look_title"></span><svg class="chev"><use href="#i-chev"/></svg></button>
+        <button id="sce-archive" class="row"><span class="kicon sm" style="--k: var(--color-ink-3); --k-soft: var(--color-paper-3)"><svg><use href="#i-calendar"/></svg></span><span id="sce-archive-text"></span></button>
+        <button id="sce-delete" class="row danger"><span class="kicon sm" style="--k: var(--color-danger); --k-soft: var(--color-danger-soft)"><svg><use href="#i-power"/></svg></span><span data-i18n="sc_delete"></span></button>
+      </div>
+    </div>
+
+    <!-- ۱: اسم -->
+    <div id="sce-p-name" class="sce-page">
+      <p class="wiz-q" data-i18n="sce_q_name"></p>
+      <input id="sce-title" class="text-input big-input" type="text" maxlength="60" autocomplete="off" data-i18n-ph="sce_title_ph">
+      <textarea id="sce-desc" class="text-input" rows="2" maxlength="300" data-i18n-ph="sce_desc_ph"></textarea>
+    </div>
+
+    <!-- ۲: نوع ورود -->
+    <div id="sce-p-access" class="sce-page">
+      <p class="wiz-q" data-i18n="sce_q_access"></p>
+      <div id="sce-access" class="access-list">
+        <button class="access-opt" data-a="free"><span class="kicon" style="--k: var(--color-success); --k-soft: var(--color-success-soft)"><svg><use href="#i-eye"/></svg></span><span class="ao-text"><b data-i18n="acc_free"></b><small data-i18n="acc_free_hint"></small></span><span class="ao-check"><svg><use href="#i-check"/></svg></span></button>
+        <button class="access-opt" data-a="once"><span class="kicon" style="--k: var(--color-star); --k-soft: var(--color-star-soft)"><svg><use href="#i-star"/></svg></span><span class="ao-text"><b data-i18n="acc_once"></b><small data-i18n="acc_once_hint"></small></span><span class="ao-check"><svg><use href="#i-check"/></svg></span></button>
+        <button class="access-opt" data-a="monthly"><span class="kicon" style="--k: var(--color-accent); --k-soft: var(--color-accent-soft)"><svg><use href="#i-calendar"/></svg></span><span class="ao-text"><b data-i18n="acc_monthly"></b><small data-i18n="acc_monthly_hint"></small></span><span class="ao-check"><svg><use href="#i-check"/></svg></span></button>
+      </div>
+      <div id="sce-price-box" class="hidden">
+        <p class="wiz-sub" data-i18n="sce_price_q"></p>
+        <div id="sce-chips" class="chips"></div>
+        <div class="price-input"><input id="sce-price" type="number" inputmode="numeric" min="1" step="1" placeholder="0"><svg class="star"><use href="#i-star"/></svg></div>
+        <p id="sce-cap" class="muted small"></p>
+      </div>
+      <div id="sce-monthly-box" class="hidden">
+        <p class="wiz-sub" data-i18n="sce_trial_q"></p>
+        <div id="sce-trial" class="chips"></div>
+        <p class="wiz-sub" data-i18n="sce_bundles_q"></p>
+        <p class="muted small" data-i18n="sce_bundles_hint"></p>
+        <div id="sce-bundles" class="bundle-inputs"></div>
+      </div>
+      <label class="switch-row">
+        <span><b data-i18n="sce_private"></b><small data-i18n="sce_private_hint"></small></span>
+        <input id="sce-private" type="checkbox"><i class="switch"></i>
+      </label>
+    </div>
+
+    <!-- ۳: محتواها -->
+    <div id="sce-p-items" class="sce-page">
+      <p class="wiz-q" data-i18n="sce_q_items"></p>
+      <p id="sce-items-hint" class="muted small"></p>
+      <div id="sce-items" class="card list pick-list"></div>
+      <p id="sce-no-products" class="muted small center hidden" data-i18n="sce_no_products"></p>
+    </div>
+
+    <!-- تنظیمات: خصوصی و تاریخ پایان -->
+    <div id="sce-p-settings" class="sce-page">
+      <label class="switch-row">
+        <span><b data-i18n="sce_private"></b><small data-i18n="sce_private_hint"></small></span>
+        <input id="sce-private2" type="checkbox"><i class="switch"></i>
+      </label>
+      <div class="date-row">
+        <span><b data-i18n="expiry_label"></b><small data-i18n="sce_expiry_hint"></small></span>
+        <div class="date-field"><input id="sce-expiry" type="date"><button id="sce-expiry-clear" class="text-btn" data-i18n="expiry_none"></button></div>
+      </div>
+    </div>
+
+    <!-- ساخته شد -->
+    <div id="sce-p-done" class="sce-page done-page">
+      <span class="done-icon"><svg><use href="#i-check"/></svg></span>
+      <h3 data-i18n="sce_done_title"></h3>
+      <p class="muted" data-i18n="sce_done_text"></p>
+      <code id="sce-done-link" class="done-link"></code>
+      <button id="sce-done-copy" class="btn-accent wide"><svg><use href="#i-link"/></svg><span data-i18n="sc_copy_bio"></span></button>
+      <button id="sce-done-story" class="btn-soft wide"><svg><use href="#i-story"/></svg><span data-i18n="story_title"></span></button>
+      <button id="sce-done-view" class="btn-soft wide"><svg><use href="#i-eye"/></svg><span data-i18n="sc_preview"></span></button>
+    </div>
+  </section>
+
+  <!-- برگه‌ی محصول برای خریدار -->
+  <section id="buy-sheet" class="sheet" aria-modal="true" role="dialog">
+    <div class="sheet-handle"></div>
+    <!-- بعد از خرید: بالای برگه، با دکمه‌ی خودش (دکمه‌ی پایین تلگرام روی دسکتاپ کم دیده می‌شود) -->
+    <div id="buy-owned" class="owned hidden">
+      <b data-i18n="owned_title"></b>
+      <p data-i18n="owned_hint"></p>
+      <button id="buy-show" class="btn-accent wide" data-i18n="show_content"></button>
+      <button id="buy-refund" class="btn-soft wide" data-i18n="refund_btn"></button>
+    </div>
+    <div id="buy-rate" class="rate-box hidden">
+      <b data-i18n="rate_title"></b>
+      <div id="buy-stars" class="stars"></div>
+    </div>
+    <div id="buy-gallery" class="gallery"></div>
+    <audio id="buy-audio" class="hidden" controls preload="none"></audio>
+    <div id="buy-cat" class="badge"></div>
+    <h2 id="buy-title" class="buy-title"></h2>
+    <div class="buy-social">
+      <button id="buy-like" class="like-btn"><svg><use href="#i-heart"/></svg><b id="buy-likes" class="num">0</b></button>
+      <button id="buy-tip" class="text-btn hidden"><svg class="star"><use href="#i-star"/></svg><span data-i18n="tip_btn"></span></button>
+    </div>
+    <p id="buy-specs" class="muted small"></p>
+    <p class="verified"><svg><use href="#i-shield"/></svg><span data-i18n="verified_specs"></span></p>
+    <div id="buy-desc-box" class="quote hidden"><b data-i18n="seller_desc"></b><p id="buy-desc"></p></div>
+    <p id="buy-snippet" class="quote hidden"></p>
+    <button id="buy-stars-help" class="stars-help hidden"><svg class="star"><use href="#i-star"/></svg><span data-i18n="stars_help_btn"></span></button>
+    <ul class="buy-notes">
+      <li id="buy-protect"></li>
+      <li id="buy-sensitive" class="hidden" data-i18n="buy_sensitive"></li>
+      <li data-i18n="buy_refund"></li>
+    </ul>
+  </section>
+
+  <!-- «استارز ندارم»: خرید استارز (مخصوصاً در ایران با تومان) -->
+  <section id="stars-sheet" class="sheet small-sheet" aria-modal="true" role="dialog">
+    <div class="sheet-handle"></div>
+    <h2 class="sheet-title" data-i18n="stars_title"></h2>
+    <div class="stars-guide" data-i18n-html="stars_body"></div>
+    <div id="stars-user" class="card stars-user">
+      <span><small data-i18n="stars_username_label"></small><b id="stars-username" class="num"></b></span>
+      <button id="stars-copy" class="btn-soft"><svg><use href="#i-link"/></svg><span data-i18n="copy"></span></button>
+    </div>
+    <p id="stars-no-user" class="warn-text hidden" data-i18n="stars_no_username"></p>
+    <p class="muted small" data-i18n="stars_after"></p>
+  </section>
+
+  <!-- انعام به سازنده -->
+  <section id="tip-sheet" class="sheet small-sheet" aria-modal="true" role="dialog">
+    <div class="sheet-handle"></div>
+    <h2 class="sheet-title" data-i18n="tip_title"></h2>
+    <p class="muted small" data-i18n="tip_hint"></p>
+    <div id="tip-chips" class="chips"></div>
+    <div class="price-input"><input id="tip-amount" type="number" inputmode="numeric" min="1" step="1" placeholder="0"><svg class="star"><use href="#i-star"/></svg></div>
+    <button id="tip-send" class="btn-accent wide"></button>
+  </section>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script src="/static/app.js"></script>
+  <script src="/static/creator.js"></script>
+</body>
+</html>

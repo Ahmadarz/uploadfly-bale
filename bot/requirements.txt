@@ -1,0 +1,9 @@
+aiogram>=3.15,<4
+SQLAlchemy[asyncio]>=2.0,<3
+aiosqlite>=0.20
+python-dotenv>=1.0
+cryptography>=43
+Pillow>=10
+PyMuPDF>=1.24
+asyncpg>=0.29
+segno>=1.6

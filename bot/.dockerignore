@@ -1,0 +1,9 @@
+.env
+*.db
+*.log
+cache/
+backups/
+__pycache__/
+*.pyc
+.DS_Store
+webapp/logo.jpg

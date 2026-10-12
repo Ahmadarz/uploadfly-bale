@@ -1,0 +1,83 @@
+# اجرای UploadFly روی سرور: docker compose up -d --build
+# همه‌ی تنظیمات و رمزها در فایل .env کنار همین فایل (نمونه: bot/.env.example)
+# پوشه‌ها: bot/ = ربات و Mini App، website/ = سایت، deploy/ = Caddy و پشتیبان‌گیری
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: uploadfly
+      POSTGRES_DB: uploadfly
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD را در .env بگذار}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U uploadfly -d uploadfly"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  bot:
+    build: ./bot
+    restart: unless-stopped
+    env_file: .env
+    environment:  # این‌ها بر مقدارهای .env (که برای مک است) غلبه می‌کنند
+      DATABASE_URL: postgresql+asyncpg://uploadfly:${POSTGRES_PASSWORD}@db:5432/uploadfly
+      WEBAPP_URL: https://${DOMAIN:?DOMAIN را در .env بگذار}
+      WEBAPP_HOST: 0.0.0.0
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - cache:/app/cache
+
+  # سایت معرفی: هر بار «docker compose up» با آدرس واقعی دوباره ساخته می‌شود (برچسب‌ها، sitemap، پشتیبانی)
+  site:
+    build: ./website
+    user: root
+    restart: "no"
+    env_file: .env
+    environment:
+      SITE_URL: https://${SITE_DOMAIN:?SITE_DOMAIN را در .env بگذار (دامنه‌ی سایت)}
+    volumes:
+      - site:/srv/site
+
+  # HTTPS خودکار (گواهی رایگان Let's Encrypt) برای Mini App و سایت
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN}
+      SITE_DOMAIN: ${SITE_DOMAIN}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - site:/srv/site:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - bot
+      - site
+
+  # پشتیبان روزانه‌ی دیتابیس در پوشه‌ی ./backups (۱۴ روز آخر نگه داشته می‌شود)
+  backup:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - ./backups:/backups
+      - ./deploy/backup.sh:/backup.sh:ro
+    entrypoint: ["sh", "/backup.sh"]
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+  cache:
+  caddy_data:
+  caddy_config:
+  site:

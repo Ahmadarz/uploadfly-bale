@@ -1,0 +1,13 @@
+.env
+.venv/
+__pycache__/
+*.db
+*.pyc
+.DS_Store
+*.log
+.pytest_cache/
+bot/webapp/logo.jpg
+bot/cache/
+backups/
+website/dist/
+.claude/

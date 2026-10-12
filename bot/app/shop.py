@@ -179,6 +179,7 @@ async def home_view(session: AsyncSession, user: User, manager: BotManager) -> t
         [InlineKeyboardButton(text=t["btn_upload"], url=f"https://ble.ir/{seller.bot_username}?start=upload")],
         [btn(t["btn_sales"], "shop:sales"), btn(t["btn_links"], "shop:links")],
         [btn(t["btn_withdraw"], "shop:withdraw"), btn(t["btn_refresh"], "shop:home")],
+        [btn(t["btn_mark_on" if seller.watermark else "btn_mark_off"], "shop:mark")],
         [btn(t["btn_disconnect"], "shop:disconnect")],
     ])
     return text, markup
@@ -278,6 +279,23 @@ async def shop_withdraw(callback: CallbackQuery, session: AsyncSession, db_user:
     else:
         text = t["withdraw_steps"].format(bot=seller.bot_username, min=WITHDRAW_MIN)
     await show(callback, text, back_markup(t))
+
+
+@router.callback_query(F.data == "shop:mark")
+async def shop_mark(callback: CallbackQuery, session: AsyncSession, db_user: User, manager: BotManager):
+    """نام خریدار روی عکس و PDF خریده‌شده (جایگزین قفل فوروارد که بله ندارد)."""
+    seller = await active_seller(session, db_user)
+    if seller is None:
+        await callback.answer()
+        return
+    seller.watermark = not seller.watermark
+    await session.commit()
+    text, markup = await home_view(session, db_user, manager)
+    try:
+        await callback.message.edit_reply_markup(reply_markup=markup)
+    except Exception:
+        pass
+    await callback.answer(T(db_user.language)["mark_on" if seller.watermark else "mark_off"], show_alert=True)
 
 
 @router.callback_query(F.data == "shop:disconnect")

@@ -12,6 +12,7 @@ import html
 import re
 
 from aiogram import Bot
+from aiohttp import FormData
 from aiogram.client.session.aiohttp import AiohttpSession
 from aiogram.client.session.middlewares.base import BaseRequestMiddleware
 from aiogram.client.telegram import TelegramAPIServer
@@ -107,7 +108,30 @@ class BaleMiddleware(BaseRequestMiddleware):
         return await make_request(bot, method)
 
 
+class BaleSession(AiohttpSession):
+    """آپلود فایل به روش بله. aiogram فایل را در یک بخش جدا می‌گذارد و در خود فیلد می‌نویسد «attach://نام»؛
+    بله این را نمی‌فهمد (آن را آدرس اینترنتی حساب می‌کند: «failed to get HTTP URL content»، دیده‌شده 2026-10-12)
+    و فایل را مستقیم در همان فیلد (photo، document، voice ...) می‌خواهد."""
+
+    def build_form_data(self, bot, method):
+        form = FormData(quote_fields=False)
+        files: dict = {}
+        for key, value in method.model_dump(warnings=False).items():
+            value = self.prepare_value(value, bot=bot, files=files)
+            if not value:
+                continue
+            name = value[len("attach://"):] if isinstance(value, str) and value.startswith("attach://") else None
+            if name in files:   # فایلِ خود همین فیلد: مستقیم در همین فیلد
+                file = files.pop(name)
+                form.add_field(key, file.read(bot), filename=file.filename or key)
+            else:
+                form.add_field(key, value)
+        for key, value in files.items():   # فایل‌های داخل آلبوم (media) به همان شکل استاندارد می‌مانند
+            form.add_field(key, value.read(bot), filename=value.filename or key)
+        return form
+
+
 def make_bale_bot(token: str) -> Bot:
-    session = AiohttpSession(api=API)
+    session = BaleSession(api=API)
     session.middleware(BaleMiddleware())
     return Bot(token=token, session=session)

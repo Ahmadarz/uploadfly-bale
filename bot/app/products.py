@@ -1,6 +1,5 @@
 """منطق مشترک محصول برای چت و Mini App: لینک، انتشار، پیش‌نمایش و آمار هر محصول."""
 import html
-from urllib.parse import quote
 
 from aiogram import Bot
 from aiogram.types import CopyTextButton, InlineKeyboardButton, InlineKeyboardMarkup, LabeledPrice
@@ -39,12 +38,29 @@ async def build_link(bot: Bot, code: str) -> str:
     return f"https://ble.ir/{me.username}?start={code}"
 
 
-def link_keyboard(link: str, lang: str) -> InlineKeyboardMarkup:
+POST_MAX = 256  # سقف متن دکمه‌ی «کپی» در بله
+
+
+def post_text(content: Content, link: str, lang: str) -> str | None:
+    """متن آماده برای کانال/استوری فروشنده: عنوان، قیمت و لینک خرید. اگر در سقف دکمه‌ی کپی جا نشود None."""
     t = T(lang)
-    return InlineKeyboardMarkup(inline_keyboard=[[
-        InlineKeyboardButton(text=t["btn_copy"], copy_text=CopyTextButton(text=link)),
-        InlineKeyboardButton(text=t["btn_share"], url="https://ble.ir/share/url?url=" + quote(link, safe="")),
-    ]])
+    title = (content.title or content.file_name or t["kinds"].get(content.kind, content.kind)).strip()
+    key = "post_paid" if content.price_stars else "post_free"
+    for cut in (80, 40, 20):
+        text = t[key].format(title=title[:cut], price=toman(content.price_stars), link=link)
+        if len(text) <= POST_MAX:
+            return text
+    return None
+
+
+def link_keyboard(link: str, lang: str, content: Content | None = None) -> InlineKeyboardMarkup:
+    """دکمه‌ی کپی لینک؛ برای محصول فروشگاه یک دکمه‌ی «کپی متن آماده‌ی تبلیغ» هم (فروشنده در کانالش می‌چسباند)."""
+    t = T(lang)
+    rows = [[InlineKeyboardButton(text=t["btn_copy"], copy_text=CopyTextButton(text=link))]]
+    post = post_text(content, link, lang) if content is not None else None
+    if post:
+        rows.append([InlineKeyboardButton(text=t["btn_copy_post"], copy_text=CopyTextButton(text=post))])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
 async def link_created(bot: Bot, chat_id: int, content: Content, lang: str) -> None:
@@ -56,7 +72,7 @@ async def link_created(bot: Bot, chat_id: int, content: Content, lang: str) -> N
         t["link_created"].format(specs=format_specs(content, lang), link=link) + f"\n💰 {t['price']}: {price}"
         + (f"\n{t['sensitive_label']}" if content.is_sensitive else "")
         + (f"\n{t['save_label']}" if content.allow_save else ""),
-        reply_markup=link_keyboard(link, lang),
+        reply_markup=link_keyboard(link, lang, content),
         disable_notification=True,  # تأیید کاری که خود کاربر کرده؛ صدا لازم نیست
     )
 

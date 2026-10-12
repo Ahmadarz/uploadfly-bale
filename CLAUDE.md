@@ -20,6 +20,11 @@
     `pre_checkout_query`, `successful_payment`, `inquireTransaction`.
   - Missing: `protect_content` (accepted but ignored), `setMyDescription`/`setMyShortDescription`, `setChatMenuButton`,
     `getUserProfilePhotos`, `sendVideoNote`, Stars, subscriptions, managed bots (no bot creation by API).
+  - **File uploads**: Bale rejects aiogram's `attach://` form ("failed to get HTTP URL content"); the file must sit
+    in its own field. `bale.BaleSession.build_form_data` does this. This bug kept the owner's first products as drafts
+    (preview upload failed while pricing). `sendMediaGroup` accepts uploads and file_ids but its response carries no
+    `photo`/file_ids, so previews with several frames are uploaded one by one (`preview.create`), and sending a
+    preview can never block publishing any more.
   - `refundStarPayment` exists as a handler but returned 500 on a test-token payment; real refunds are unverified.
   - `editMessageText` returns `message_id: 0`; `successful_payment` messages also have `message_id: 0`.
 - Decisions (owner, 2026-10-12):
@@ -46,6 +51,27 @@
   - Monthly showcases have no auto-renewal: each payment adds 30 days (`Membership.canceled=True`), members may renew
     early; reminders ask them to pay again.
   - Wallet page: `balance` = sum of recorded income; no hold period, no minimum, no Premium.
+- Growth and seller acquisition (owner request 2026-10-12: make it practical and marketable on Bale):
+  - Positioning used in every text: sell files on Bale with no website and no payment gateway; money goes straight to
+    the seller's own Bale wallet; we take no share. Claims must stay literally true (no "cannot be forwarded").
+  - `/start` welcome leads with selling; a user without a shop gets one button straight to the 3-step guide
+    (`shop:create`), a user with a shop gets "my shop".
+  - Onboarding tolerance (`connect.find_bot_token` / `find_wallet_token`): users paste the whole @botfather message;
+    the token is found inside it. A bot token sent without `/connect` still starts the connection (and is deleted),
+    so it can never become a public "free link".
+  - After publishing, the link message has "copy link" and "copy ready-made post" (`products.post_text`, ≤256
+    chars: title, price, link) for the seller's channel. There is no share URL on Bale; never link to `ble.ir/share`.
+  - Growth loop (`handlers.invite_viewer`): someone who opens another person's free link in the main bot and has made
+    nothing yet gets one silent invite with the selling button, at most once a week (`User.cta_at`).
+  - **Buyer's name on the file** replaces the missing forward lock: `Seller.watermark` (default ON for new shops,
+    toggle in `/shop` → `shop:mark`, also in Mini App settings) stamps `@username`/`id N` on bought photos and on every
+    page of bought PDFs (`creator.watermark_pdf`, PyMuPDF, Latin text only, files ≤ 20 MB). The buyer is told
+    (`marked_note`). Videos, audio and other files are sent as they are.
+  - Already there and useful for ads: `/srclink <tag>` tracked links, `/stats` funnel and sources, `ref_<id>`
+    referrals, "Made with UploadFly" footer, `powered_by` after a purchase.
+  - Not done yet (need the owner): server + domain (24/7 bot, HTTPS for the Mini App, website), a real-wallet purchase
+    and Bale's wallet fee, the bot's name/photo/description in Bale's @botfather, support account in `.env`.
+    Ideas offered, not built: Bale landing website (the `website/` folder is still the Telegram text), discount codes.
 - Mini App on Bale (`bot/webapp/`):
   - `bale-sdk.js` = Bale's official `tapi.bale.ai/miniapp.js`, vendored inside an IIFE (the original leaks dozens of
     short globals such as `me`, which broke `app.js`). `bale.js` = adapter that exposes `window.Telegram.WebApp` on top

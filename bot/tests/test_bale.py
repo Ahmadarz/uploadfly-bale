@@ -92,3 +92,42 @@ def test_incoming_bale_payment_becomes_toman():
     plain = Update.model_validate({"update_id": 3, "message": {
         "message_id": 1, "date": 1, "chat": {"id": 5, "type": "private"}, "from": user, "text": "سلام"}})
     assert to_toman(plain) is plain
+
+
+def test_uploads_put_the_file_in_its_own_field():
+    """بله «attach://» را نمی‌فهمد: فایل باید مستقیم در همان فیلد (photo، document ...) باشد."""
+    from aiogram.types import BufferedInputFile
+
+    from app.bale import make_bale_bot
+    bot = make_bale_bot("4242:" + "A" * 35)
+    form = bot.session.build_form_data(bot, SendPhoto(chat_id=7, photo=BufferedInputFile(b"jpeg-bytes", "p.jpg"),
+                                                      caption="c"))
+    fields = {opts["name"]: (opts.get("filename"), value) for opts, _headers, value in form._fields}
+    assert fields["photo"][0] == "p.jpg" and set(fields) == {"chat_id", "photo", "caption"}
+    assert not any(isinstance(v, str) and v.startswith("attach://") for _name, v in fields.values())
+    # آلبوم: خود بله مرجع attach:// را داخل media می‌پذیرد، پس همان شکل استاندارد می‌ماند
+    form = bot.session.build_form_data(bot, SendMediaGroup(chat_id=7, media=[
+        InputMediaPhoto(media=BufferedInputFile(b"a", "a.jpg")), InputMediaPhoto(media=BufferedInputFile(b"b", "b.jpg"))]))
+    names = [opts["name"] for opts, _headers, _value in form._fields]
+    assert "media" in names and len(names) == 4
+
+
+async def test_failed_preview_upload_does_not_block_publishing(env, monkeypatch):
+    """دیده‌شده روی بله: آپلود پیش‌نمایش رد شد و محصول «پیش‌نویس» ماند. حالا بدون پیش‌نمایش منتشر می‌شود."""
+    from aiogram.exceptions import TelegramBadRequest
+    from sqlalchemy import select
+
+    from app.db import Content, SessionLocal
+    from tests.conftest import OWNER, SHOP_ID, callback, photo_message
+    await env.feed(env.shop, photo_message(OWNER))
+    async with SessionLocal() as s:
+        c = await s.scalar(select(Content).order_by(Content.id.desc()))
+
+    async def refuse(*args, **kwargs):
+        raise TelegramBadRequest(method=None, message="Bad Request: failed to get HTTP URL content")
+    monkeypatch.setattr(env.shop, "send_photo", refuse)
+    await env.feed(env.shop, callback(OWNER, f"price:{c.id}:10"))
+    async with SessionLocal() as s:
+        c = await s.get(Content, c.id)
+    assert not c.is_draft and c.is_active and c.price_stars == 10 and c.preview is None
+    assert "لینک ساخته شد" in env.tg.texts(SHOP_ID)

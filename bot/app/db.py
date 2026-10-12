@@ -41,6 +41,8 @@ class User(Base):
     source: Mapped[str | None] = mapped_column(String(32), index=True)
     referrer_id: Mapped[int | None] = mapped_column(BigInteger, index=True)  # سازنده‌ای که او را دعوت کرده (ref_<id>)
     adult_ok: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")  # تأیید ۱۸+ برای محتوای حساس
+    # آخرین باری که زیر یک لینک رایگان «تو هم لینک بساز/بفروش» را دید (حداکثر هفته‌ای یک بار؛ حلقه‌ی رشد)
+    cta_at: Mapped[datetime | None] = mapped_column(DateTime)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
@@ -118,7 +120,8 @@ class Seller(Base):
     listed: Mapped[bool] = mapped_column(Boolean, default=True, server_default="1")  # در صفحه‌ی کشف دیده شود
     dm_mode: Mapped[str] = mapped_column(String(8), default="fans", server_default="fans")  # all | fans | off
     welcome: Mapped[str | None] = mapped_column(Text)                # پیام خوش‌آمد خودکار به مشترک تازه
-    watermark: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")  # یوزرنیم خریدار روی عکس
+    # نام خریدار روی عکس و هر صفحه‌ی PDF خریده‌شده. بله قفل فوروارد ندارد؛ برای فروشگاه تازه پیش‌فرض روشن است
+    watermark: Mapped[bool] = mapped_column(Boolean, default=True, server_default="0")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
@@ -344,7 +347,7 @@ _ADDED_COLUMNS = {
     "showcases": {"private": "BOOLEAN NOT NULL DEFAULT false", "archived": "BOOLEAN NOT NULL DEFAULT false",
                   "expires_at": "TIMESTAMP", "theme": "VARCHAR(16)", "cover": "VARCHAR(24)", "style": "TEXT",
                   "background": "VARCHAR(24)", "trial_days": "INTEGER NOT NULL DEFAULT 0", "bundles": "TEXT"},
-    "users": {"tz_offset": "INTEGER", "source": "VARCHAR(32)", "referrer_id": "BIGINT",
+    "users": {"tz_offset": "INTEGER", "source": "VARCHAR(32)", "referrer_id": "BIGINT", "cta_at": "TIMESTAMP",
               "adult_ok": "BOOLEAN NOT NULL DEFAULT false"},
     "sellers": {"is_suspended": "BOOLEAN NOT NULL DEFAULT false", "wallet_enc": "TEXT", "logo": "VARCHAR(24)", "theme": "VARCHAR(16)",
                 "cover": "VARCHAR(24)", "style": "TEXT", "links": "TEXT",

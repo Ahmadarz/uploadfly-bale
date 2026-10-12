@@ -1,4 +1,5 @@
 import html
+from datetime import datetime, timedelta, timezone
 import re
 import secrets
 import string
@@ -84,7 +85,7 @@ async def open_link(message: Message, command: CommandObject, session: AsyncSess
             db_user.source = "ref"
             if is_id(ref, big=True) and int(ref) != db_user.id and await session.get(User, int(ref)):
                 db_user.referrer_id = int(ref)
-        await start(message, db_user, bot, seller, main_username, webapp_url)
+        await start(message, db_user, bot, seller, main_username, webapp_url, session=session)
         return
     if code == "broadcast" and seller is not None:  # از دکمه‌ی «پیام گروهی» در Mini App
         await creator.broadcast_menu(message, session, db_user, bot, seller)
@@ -95,7 +96,7 @@ async def open_link(message: Message, command: CommandObject, session: AsyncSess
     if seller is None and code.startswith("src_"):  # لینک تبلیغ: t.me/Uploadfly_Bot?start=src_<کانال>
         if new_user and db_user.source is None:
             db_user.source = clean_source(code[4:])
-        await start(message, db_user, bot, seller, main_username, webapp_url)
+        await start(message, db_user, bot, seller, main_username, webapp_url, session=session)
         return
     if seller is None and new_user and db_user.source is None:
         db_user.source = "link"  # با لینک رایگان کسی آمده (حلقه‌ی رشد لینک‌ها)
@@ -141,10 +142,31 @@ async def open_link(message: Message, command: CommandObject, session: AsyncSess
             return
     if purchase is None:
         await deliver(bot, message.chat.id, content, session, db_user.language)
+        await invite_viewer(message, session, db_user, content, seller)
     elif purchase.opened_at is None:
         await after_payment(bot, message.chat.id, purchase, content, session, db_user.language)
     else:
         await open_purchase(bot, message.chat.id, purchase, content, session, db_user.language)
+
+
+CTA_EVERY = timedelta(days=7)
+
+
+async def invite_viewer(message: Message, session: AsyncSession, db_user: User, content: Content,
+                        seller: Seller | None) -> None:
+    """حلقه‌ی رشد: کسی که لینک رایگانِ یک نفر دیگر را در بازوی اصلی باز کرده و خودش هنوز چیزی نساخته،
+    یک پیام کوتاه و بی‌صدا می‌بیند که او هم می‌تواند لینک بسازد یا بفروشد. حداکثر هفته‌ای یک بار."""
+    if seller is not None or content.owner_id == db_user.id:
+        return
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    if db_user.cta_at is not None and now - db_user.cta_at < CTA_EVERY:
+        return
+    if await session.scalar(select(Content.id).where(Content.owner_id == db_user.id).limit(1)):
+        return
+    db_user.cta_at = now
+    t = T(db_user.language)
+    await message.answer(t["viewer_invite"], disable_notification=True, reply_markup=InlineKeyboardMarkup(
+        inline_keyboard=[[InlineKeyboardButton(text=t["btn_start_selling"], callback_data="shop:create")]]))
 
 
 async def send_showcase_button(message: Message, session: AsyncSession, db_user: User, bot: Bot, code: str,
@@ -185,14 +207,17 @@ async def send_store_button(message: Message, db_user: User, seller: Seller, bot
 
 @router.message(CommandStart())
 async def start(message: Message, db_user: User, bot: Bot, seller: Seller | None, main_username: str,
-                webapp_url: str | None = None, new_user: bool = False):
+                webapp_url: str | None = None, new_user: bool = False, session: AsyncSession | None = None):
     if new_user and db_user.source is None:
         db_user.source = "direct"
     t = T(db_user.language)
     name = html.escape(message.from_user.first_name or "")
     await set_user_menu(bot, db_user.id, db_user.language, message.from_user.language_code, seller is not None)
     if seller is None:
-        rows = [[InlineKeyboardButton(text=t["btn_open_shop"], callback_data="shop:home")]]
+        # یک دکمه‌ی روشن برای فروش: کسی که فروشگاه ندارد مستقیم به راهنمای ساخت می‌رود (یک ضربه کمتر)
+        has_shop = session is not None and await active_seller(session, db_user) is not None
+        rows = [[InlineKeyboardButton(text=t["btn_open_shop"], callback_data="shop:home")] if has_shop
+                else [InlineKeyboardButton(text=t["btn_start_selling"], callback_data="shop:create")]]
         if webapp_url:  # بله دکمه‌ی منوی مینی‌اپ را از طریق برنامه نمی‌گذارد؛ ورودی مینی‌اپ همین دکمه است
             rows.insert(0, [InlineKeyboardButton(text=t["btn_open_app"], web_app=WebAppInfo(url=webapp_url))])
         await message.answer(t["welcome"].format(name=name), reply_markup=InlineKeyboardMarkup(inline_keyboard=rows))
@@ -396,7 +421,7 @@ async def save_content(message: Message, session: AsyncSession, db_user: User, b
                 await open_link(message, CommandObject(prefix="/", command="start", args=code), session, db_user,
                                 bot, seller, state, main_username, webapp_url)
             else:  # لینک خالیِ همین ربات: مثل /start
-                await start(message, db_user, bot, seller, main_username, webapp_url)
+                await start(message, db_user, bot, seller, main_username, webapp_url, session=session)
             return
         # لینک یکی دیگر از ربات‌های UploadFly (فروشگاه یا ربات اصلی): دکمه‌ی باز کردن همان‌جا
         is_ours = target == main_username.lower() or await session.scalar(select(Seller.id).where(
@@ -426,7 +451,7 @@ async def save_content(message: Message, session: AsyncSession, db_user: User, b
 
     if seller is None:
         link = await build_link(bot, content.code)
-        markup = link_keyboard(link, db_user.language)
+        markup = link_keyboard(link, db_user.language)  # لینک رایگان: فقط کپی لینک
         text = t["link_created"].format(specs=format_specs(content, db_user.language), link=link)
         own_shop = await active_seller(session, db_user)
         if own_shop:  # فروشنده اشتباهی در ربات اصلی آپلود کرده؛ راه فروش را نشانش بده

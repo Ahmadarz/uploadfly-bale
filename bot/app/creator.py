@@ -715,12 +715,53 @@ def watermark_photo(raw: bytes, text: str) -> bytes:
     return out.getvalue()
 
 
+def watermark_pdf(raw: bytes, mark: str) -> bytes:
+    """نام خریدار روی هر صفحه‌ی PDF: یک خط ریز پایین صفحه + یک نوشته‌ی کم‌رنگ مورب وسط صفحه.
+    فقط حروف لاتین (یوزرنیم یا شناسه) تا فونت فارسی لازم نباشد."""
+    import pymupdf
+    doc = pymupdf.open(stream=raw, filetype="pdf")
+    try:
+        if doc.needs_pass:
+            raise ValueError("encrypted pdf")
+        foot = f"Licensed to {mark} - UploadFly"
+        for page in doc:
+            r = page.rect
+            side = min(r.width, r.height)
+            page.insert_text((r.x0 + 18, r.y1 - 12), foot, fontsize=max(7, side / 70), color=(0.4, 0.4, 0.4),
+                             fill_opacity=0.8, overlay=True)
+            big = side / 11
+            width = pymupdf.get_text_length(mark, fontsize=big)
+            c = pymupdf.Point(r.x0 + (r.width - width * 0.82) / 2, r.y0 + r.height / 2 + width * 0.29)
+            page.insert_text(c, mark, fontsize=big, color=(0.5, 0.5, 0.5), fill_opacity=0.13, overlay=True,
+                             morph=(c, pymupdf.Matrix(35)))
+        return doc.tobytes(garbage=3, deflate=True)
+    finally:
+        doc.close()
+
+
+MARK_MAX_BYTES = 20 * 1024 * 1024   # سقف دانلود بازو در بله؛ فایل بزرگ‌تر بدون نشانه فرستاده می‌شود
+
+
+def is_pdf(c: Content) -> bool:
+    return c.kind == "document" and (c.mime_type == "application/pdf" or (c.file_name or "").lower().endswith(".pdf"))
+
+
+def can_mark(c: Content) -> bool:
+    """محتوایی که می‌شود نام خریدار را رویش گذاشت: عکس و PDF تا ۲۰ مگابایت."""
+    return bool(c.file_id) and (c.file_size or 0) <= MARK_MAX_BYTES and (c.kind == "photo" or is_pdf(c))
+
+
 async def send_watermarked(bot: Bot, chat_id: int, c: Content, mark: str) -> int | None:
-    """عکس با واترمارک؛ اگر نشد None (فرستنده همان عکس عادی را می‌فرستد)."""
-    if c.kind != "photo" or not c.file_id or (c.file_size or 0) > 20 * 1024 * 1024:
+    """عکس یا PDF با نام خریدار؛ اگر نشد None (فرستنده همان فایل عادی را می‌فرستد)."""
+    if not can_mark(c):
         return None
     try:
         raw = (await bot.download(c.file_id)).read()
+        if is_pdf(c):
+            data = await asyncio.to_thread(watermark_pdf, raw, mark)
+            m = await bot.send_document(chat_id, BufferedInputFile(data, c.file_name or "file.pdf"), caption=c.text,
+                                        protect_content=True)
+            return m.message_id
         data = await asyncio.to_thread(watermark_photo, raw, mark)
         m = await bot.send_photo(chat_id, BufferedInputFile(data, "photo.jpg"), caption=c.text,
                                  protect_content=True)

@@ -31,7 +31,28 @@ router = Router()
 router.message.filter(F.chat.type == "private", main_bot)
 
 BOTFATHER = "botfather"
+# کاربرها معمولاً کل پیام @botfather را می‌چسبانند، نه فقط خود توکن؛ توکن از وسط متن پیدا می‌شود
+BOT_TOKEN = re.compile(r"(?<![\w:-])\d{5,}:[A-Za-z0-9_-]{20,}")
 WALLET_TOKEN = re.compile(r"[A-Za-z0-9_:\-]{8,128}")
+WALLET_IN_TEXT = re.compile(r"(?<![\w:-])[A-Za-z0-9][A-Za-z0-9_:\-]{11,127}(?![\w:-])")
+
+
+def find_bot_token(text: str) -> str | None:
+    m = BOT_TOKEN.search(text or "")
+    return m.group(0) if m else None
+
+
+def find_wallet_token(text: str) -> str | None:
+    """توکن کیف پول از متن چسبانده‌شده: کل پیام اگر خودش توکن است؛ وگرنه تکه‌ای که با WALLET شروع می‌شود،
+    یا تنها تکه‌ی توکن‌مانند متن. توکن بازو (عدد:حروف) کیف پول نیست."""
+    text = (text or "").strip()
+    if WALLET_TOKEN.fullmatch(text) and not BOT_TOKEN.fullmatch(text):
+        return text
+    found = [w for w in WALLET_IN_TEXT.findall(text) if not BOT_TOKEN.fullmatch(w) and any(ch.isdigit() for ch in w)]
+    named = [w for w in found if w.upper().startswith("WALLET")]
+    if named:
+        return named[0]
+    return found[0] if len(found) == 1 else None
 
 
 class Connect(StatesGroup):
@@ -110,7 +131,7 @@ async def connect_cancel(message: Message, db_user: User, state: FSMContext):
 async def connect_token(message: Message, session: AsyncSession, db_user: User, state: FSMContext,
                         bot: Bot, manager: BotManager):
     t = T(db_user.language)
-    token = message.text.strip()
+    token = find_bot_token(message.text) or message.text.strip()
     try:
         await message.delete()  # توکن نباید در تاریخچه‌ی چت بماند
     except Exception:
@@ -145,6 +166,21 @@ async def connect_token(message: Message, session: AsyncSession, db_user: User, 
         return
     await state.set_state(Connect.waiting_wallet)
     await message.answer(t["wallet_ask"].format(bot=me.username), reply_markup=botfather_markup(t))
+
+
+@router.message(StateFilter(None), F.text.func(find_bot_token))
+async def token_without_connect(message: Message, session: AsyncSession, db_user: User, state: FSMContext,
+                                bot: Bot, manager: BotManager):
+    """کسی بدون زدن /connect توکن بازو را فرستاده: همان اتصال فروشگاه (وگرنه توکنش «لینک رایگان» می‌شد و لو می‌رفت)."""
+    if await active_seller(session, db_user):
+        try:
+            await message.delete()
+        except Exception:
+            pass
+        seller = await active_seller(session, db_user)
+        await message.answer(T(db_user.language)["already_connected"].format(bot=seller.bot_username))
+        return
+    await connect_token(message, session, db_user, state, bot, manager)
 
 
 @router.message(StateFilter(Connect.waiting_token), ~F.text.startswith("/"))
@@ -187,7 +223,7 @@ async def wallet_works(seller_bot: Bot, bot_id: int, token: str, old: str | None
 async def wallet_token(message: Message, session: AsyncSession, db_user: User, state: FSMContext,
                        manager: BotManager):
     t = T(db_user.language)
-    token = message.text.strip()
+    token = find_wallet_token(message.text) or ""
     try:
         await message.delete()  # توکن کیف پول هم نباید در چت بماند
     except Exception:

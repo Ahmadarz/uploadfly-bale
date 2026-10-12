@@ -135,19 +135,25 @@ async def create(bot: Bot, c: Content, chat_id: int, caption: str) -> None:
 
     stored: dict = {k: built[k] for k in ("text", "pages", "thumb_only") if k in built}
     photos = built.get("photos") or []
-    if len(photos) == 1:
-        m = await bot.send_photo(chat_id, BufferedInputFile(photos[0], "preview.jpg"), caption=caption,
-                                 protect_content=True, disable_notification=True)
-        stored["photos"] = [m.photo[-1].file_id]
-    elif photos:
-        msgs = await bot.send_media_group(chat_id, [
-            InputMediaPhoto(media=BufferedInputFile(p, f"preview{i}.jpg"), caption=caption if i == 0 else None)
-            for i, p in enumerate(photos)], protect_content=True, disable_notification=True)
-        stored["photos"] = [m.photo[-1].file_id for m in msgs]
-    if built.get("voice"):
-        m = await bot.send_voice(chat_id, BufferedInputFile(built["voice"], "preview.ogg"), caption=caption,
-                                 protect_content=True, disable_notification=True)
-        stored["voice"] = m.voice.file_id
+    try:   # فرستادن پیش‌نمایش هم نباید جلوی انتشار را بگیرد (بله یک بار آپلود را رد کرد و محصول پیش‌نویس ماند)
+        if len(photos) == 1:
+            m = await bot.send_photo(chat_id, BufferedInputFile(photos[0], "preview.jpg"), caption=caption,
+                                     protect_content=True, disable_notification=True)
+            stored["photos"] = [m.photo[-1].file_id]
+        elif photos:
+            # بله در جواب آلبوم (sendMediaGroup) شناسه‌ی فایل‌ها را برنمی‌گرداند (دیده‌شده 2026-10-12)؛ برای همین فریم‌ها
+            # تک‌تک برای فروشنده فرستاده می‌شوند تا file_id داشته باشیم. خریدار همان‌ها را بعداً به شکل آلبوم می‌بیند
+            stored["photos"] = []
+            for i, p in enumerate(photos):
+                m = await bot.send_photo(chat_id, BufferedInputFile(p, f"preview{i}.jpg"), caption=caption if i == 0 else None,
+                                         protect_content=True, disable_notification=True)
+                stored["photos"].append(m.photo[-1].file_id)
+        if built.get("voice"):
+            m = await bot.send_voice(chat_id, BufferedInputFile(built["voice"], "preview.ogg"), caption=caption,
+                                     protect_content=True, disable_notification=True)
+            stored["voice"] = m.voice.file_id
+    except Exception:
+        log.exception("Sending the preview failed for content %s", c.id)
     c.preview = json.dumps(stored) if stored else None
 
 

@@ -101,7 +101,8 @@ async def open_purchase(bot: Bot, chat_id: int, purchase: Purchase, content: Con
         mark = creator.mark_for(buyer) if buyer else None
     remember_message(purchase, await deliver(bot, chat_id, content, session, lang, mark=mark))
     if first_time:  # یک پیام بی‌صدا: امتیاز (۱ تا ۵) و گزارش مشکل
-        await bot.send_message(chat_id, T(lang)["rate_hint"] + "\n\n" + T(lang)["report_offer"],
+        note = T(lang)["marked_note"] + "\n\n" if mark and creator.can_mark(content) else ""
+        await bot.send_message(chat_id, note + T(lang)["rate_hint"] + "\n\n" + T(lang)["report_offer"],
                                reply_markup=rating_markup(purchase.id, lang), disable_notification=True)
     await session.commit()
 

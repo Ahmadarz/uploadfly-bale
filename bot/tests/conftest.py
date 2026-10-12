@@ -189,7 +189,7 @@ async def env(dispatcher, monkeypatch, tmp_path):
             s.add(User(id=uid, first_name=name, username=name.lower(), language="fa"))
         await s.flush()  # اول کاربرها (PostgreSQL کلید خارجی را بررسی می‌کند، SQLite نه)
         s.add(Seller(owner_id=OWNER, bot_id=SHOP_ID, bot_username=f"bot{SHOP_ID}",
-                     token_enc=encrypt(f"{SHOP_ID}:" + "A" * 35), wallet_enc=encrypt("WALLET-TEST-1111111111111111")))
+                     token_enc=encrypt(f"{SHOP_ID}:" + "A" * 35), wallet_enc=encrypt("WALLET-TEST-1111111111111111"), watermark=False))
         await s.commit()
 
     class Env:

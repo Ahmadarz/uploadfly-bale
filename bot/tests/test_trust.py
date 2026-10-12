@@ -21,7 +21,7 @@ async def test_new_seller_price_cap_in_chat(env):
         assert await price_cap(s, SHOP_ID) == 100
     await env.feed(env.shop, callback(OWNER, f"chatprice:{c.id}"))
     prices = [b["text"] for b in env.tg.buttons(SHOP_ID)]
-    assert "100 ⭐" in prices and "250 ⭐" not in prices
+    assert "100" in prices and "250" not in prices
     await env.feed(env.shop, callback(OWNER, f"price:{c.id}:250"))      # دکمه‌ی دست‌کاری‌شده
     async with SessionLocal() as s:
         assert (await s.get(Content, c.id)).is_draft
@@ -155,14 +155,13 @@ async def test_ban_seller_closes_shop(env):
     await env.feed(env.main, message(OWNER, "/stats"))
     assert "آمار UploadFly" in env.tg.texts(MAIN_ID)
     # مدیر خودش را نمی‌تواند مسدود کند؛ فروشنده‌ی دیگری می‌سازیم
-    new_bot = {"id": 3000009, "is_bot": True, "first_name": "S", "username": "buyer_shop_bot"}
-    await env.feed(env.main, {"managed_bot": {"user": {"id": BUYER, "is_bot": False, "first_name": "B"},
-                                              "bot_user": new_bot}})
+    await env.feed(env.main, message(BUYER, "/connect"))
+    await env.feed(env.main, message(BUYER, "3000009:" + "D" * 35))
     await env.feed(env.main, message(OWNER, f"/ban {BUYER}"))
     from app.db import Seller
     async with SessionLocal() as s:
         seller = await s.scalar(select(Seller).where(Seller.bot_id == 3000009))
-    assert not seller.is_active and "فروشگاه @buyer_shop_bot قطع شد" in env.tg.texts(MAIN_ID)
+    assert not seller.is_active and "فروشگاه @bot3000009 قطع شد" in env.tg.texts(MAIN_ID)
 
 
 async def test_admin_usage_messages_are_valid_html(env):
@@ -186,7 +185,7 @@ async def test_refund_test_payments_command(env):
     await env.feed(env.main, message(STRANGER, "/refundtests"))           # غیرمدیر: هیچ
     assert "برگرداندن" not in env.tg.texts(MAIN_ID)
     await env.feed(env.main, message(OWNER, "/refundtests"))
-    assert "2 خرید" in env.tg.texts(MAIN_ID) and "15 ⭐" in env.tg.texts(MAIN_ID)
+    assert "2 خرید" in env.tg.texts(MAIN_ID) and "15 تومان" in env.tg.texts(MAIN_ID)
     await env.feed(env.main, callback(OWNER, "rft:no"))
     assert env.tg.sent(SHOP_ID, "RefundStarPayment") == []
     await env.feed(env.main, callback(STRANGER, "rft:yes"))               # دکمه با حساب دیگر: هیچ

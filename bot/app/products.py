@@ -8,11 +8,11 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import preview
+from app.money import MAX_PRICE, MIN_PRICE, PRICE_PRESETS, toman  # noqa: F401  (بقیه‌ی ماژول‌ها از همین‌جا می‌گیرند)
 from app.db import Content, Purchase, Review
 from app.texts import T, format_specs
 
-PRICE_PRESETS = (10, 25, 50, 100, 250)
-MAX_PRICE = 10000  # سقف تلگرام برای یک فاکتور استارز؛ سقف اعتماد فروشنده‌ی جدید در مرحله‌ی ۳ می‌آید
+# قیمت‌ها به تومان (app/money.py). قبلاً: سقف تلگرام برای یک فاکتور استارز؛ سقف اعتماد فروشنده‌ی جدید در مرحله‌ی ۳ می‌آید
 # دسته‌های ثابت (نه متن آزاد) تا جست‌وجو و Explore آینده تمیز کار کند. برچسب‌ها در Mini App ترجمه می‌شوند
 CATEGORIES = ("education", "movies", "music", "books", "ai", "photos", "software", "other")
 TITLE_MAX, DESCRIPTION_MAX = 80, 500
@@ -50,7 +50,7 @@ def link_keyboard(link: str, lang: str) -> InlineKeyboardMarkup:
 async def link_created(bot: Bot, chat_id: int, content: Content, lang: str) -> None:
     t = T(lang)
     link = await build_link(bot, content.code)
-    price = t["price_free"] if content.price_stars == 0 else f"{content.price_stars} ⭐"
+    price = t["price_free"] if content.price_stars == 0 else toman(content.price_stars)
     await bot.send_message(
         chat_id,
         t["link_created"].format(specs=format_specs(content, lang), link=link) + f"\n💰 {t['price']}: {price}"

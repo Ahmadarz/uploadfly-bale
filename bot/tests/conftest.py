@@ -18,6 +18,8 @@ os.environ["DATABASE_URL"] = os.getenv("TEST_DATABASE_URL") or f"sqlite+aiosqlit
 os.environ["BOT_TOKEN"] = "1000001:" + "A" * 35
 os.environ["ENCRYPTION_KEY"] = Fernet.generate_key().decode()
 os.environ["WEBAPP_URL"] = "https://app.example"
+os.environ["PRICE_UNIT"] = "1"  # قیمت‌های تست کوچک می‌مانند (در اجرای واقعی واحد ۱۰۰۰ تومان است)
+os.environ["REFUNDS"] = "1"  # مسیر بازپرداخت در تست‌ها روشن است؛ حالت خاموش تست جدا دارد
 os.environ["ADMIN_IDS"] = "501"  # OWNER در تست‌ها مدیر است
 
 import pytest  # noqa: E402
@@ -173,6 +175,10 @@ async def env(dispatcher, monkeypatch, tmp_path):
     dispatcher["main_bot_id"] = MAIN_ID
     dispatcher["main_username"] = "Uploadfly_Bot"
     dispatcher["webapp_url"] = "https://app.example"
+    dispatcher.fsm.storage.storage.clear()   # حالت نیمه‌کاره‌ی گفت‌وگو (مثلاً «منتظر توکن») از تست قبلی نماند
+    # اتصال فروشگاه با توکن: به‌جای بازوی واقعی بله، همان بازوی ساختگی
+    import app.connect
+    monkeypatch.setattr(app.connect, "make_bot", lambda token: tg.bot(int(token.split(":")[0])))
 
     async def fake_build(bot, c, workdir):  # ساخت پیش‌نمایش بدون ffmpeg و دانلود
         return {"text": preview.text_snippet(c)} if c.kind == "text" else {"photos": [_JPEG]}
@@ -183,7 +189,7 @@ async def env(dispatcher, monkeypatch, tmp_path):
             s.add(User(id=uid, first_name=name, username=name.lower(), language="fa"))
         await s.flush()  # اول کاربرها (PostgreSQL کلید خارجی را بررسی می‌کند، SQLite نه)
         s.add(Seller(owner_id=OWNER, bot_id=SHOP_ID, bot_username=f"bot{SHOP_ID}",
-                     token_enc=encrypt(f"{SHOP_ID}:" + "A" * 35)))
+                     token_enc=encrypt(f"{SHOP_ID}:" + "A" * 35), wallet_enc=encrypt("WALLET-TEST-1111111111111111")))
         await s.commit()
 
     class Env:

@@ -141,7 +141,7 @@ async def api_explore(request: web.Request) -> web.Response:
 async def api_store_tip(request: web.Request) -> web.Response:
     body = await json_object(request) or {}
     amount = body.get("amount")
-    if not is_int(amount) or not 1 <= amount <= creator.TIP_MAX:
+    if not is_int(amount) or not creator.TIP_MIN <= amount <= creator.TIP_MAX:
         return error("bad_price")
     cid = body.get("content_id")
     async with SessionLocal() as session:

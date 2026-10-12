@@ -8,7 +8,7 @@ import logging
 from datetime import datetime, timedelta, timezone
 
 from aiogram import Bot, F, Router
-from aiogram.exceptions import TelegramBadRequest
+from aiogram.exceptions import TelegramAPIError, TelegramBadRequest
 from aiogram.filters import Command
 from aiogram.types import (CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message, WebAppInfo,
                            PreCheckoutQuery)
@@ -64,6 +64,15 @@ def pending_markup(purchase: Purchase, lang: str) -> InlineKeyboardMarkup:
         [InlineKeyboardButton(text=t["btn_open"], callback_data=f"open:{purchase.id}")],
         [InlineKeyboardButton(text=t["btn_refund"], callback_data=f"refund:{purchase.id}")],
     ])
+
+
+async def after_payment(bot: Bot, chat_id: int, purchase: Purchase, content: Content, session: AsyncSession,
+                        lang: str) -> None:
+    """خریدِ هنوز بازنشده: اگر بازپرداخت روشن است انتخاب «نمایش یا بازپرداخت»، وگرنه محتوا مستقیم تحویل می‌شود."""
+    if settings.refunds:
+        await send_pending(bot, chat_id, purchase, lang)
+    else:
+        await open_purchase(bot, chat_id, purchase, content, session, lang)
 
 
 async def send_pending(bot: Bot, chat_id: int, purchase: Purchase, lang: str) -> None:
@@ -130,17 +139,16 @@ async def content_from_payload(session: AsyncSession, payload: str, bot_id: int)
 
 @router.message(Command("balance"))
 async def balance(message: Message, session: AsyncSession, db_user: User, bot: Bot, seller: Seller):
-    """موجودی استارز ربات فروشنده، مستقیم از خود تلگرام (فقط برای صاحب ربات)."""
+    """جمع فروش ثبت‌شده‌ی فروشگاه (فقط برای صاحب بازو). موجودی واقعی در کیف پول بله‌ی خود فروشنده است."""
     t = T(db_user.language)
     if seller.owner_id != db_user.id:
         await message.answer(t["owner_only"])
         return
-    stars = await bot.get_my_star_balance()
     sales, total = (await session.execute(
         select(func.count(Purchase.id), func.coalesce(func.sum(Purchase.amount), 0))
         .where(Purchase.bot_id == bot.id, Purchase.refunded.is_(False))
     )).one()
-    await message.answer(t["balance"].format(stars=stars.amount, sales=sales, total=total))
+    await message.answer(t["balance"].format(sales=sales, total=total))
 
 
 @router.pre_checkout_query()
@@ -164,7 +172,8 @@ async def pre_checkout(query: PreCheckoutQuery, session: AsyncSession, db_user: 
             blocked = bool(active and active.sub_charge_id and not active.canceled)
             expected = showcases.bundle_price(sc, months) if sc else None
         else:        # عضو آزمایشی می‌تواند وسط دوره‌ی آزمایشی مشترک شود
-            blocked = bool(active) and not showcases.is_trial(active)
+            # ماهانه در بله تمدید خودکار ندارد: عضو با پرداخت دوباره یک ماه به عضویتش اضافه می‌کند
+            blocked = bool(active) and not showcases.is_trial(active) and sc.access != "monthly"
             expected = sc.price if sc else None
         ok = sc is not None and not blocked and query.currency == "XTR" and query.total_amount == expected
         await query.answer(ok=ok, error_message=None if ok else t["pay_unavailable"])
@@ -201,6 +210,9 @@ async def joined_showcase(message: Message, session: AsyncSession, db_user: User
     first_time = not await session.scalar(select(showcases.Membership.id).where(
         showcases.Membership.showcase_id == sc.id, showcases.Membership.user_id == db_user.id,
         showcases.Membership.amount > 0).limit(1))
+    manual_month = not months and sc.access == "monthly" and expires is None   # بله: بدون تمدید خودکار
+    if manual_month:
+        months = 1
     if months:   # بسته‌ی چندماهه: از پایان عضویت فعلی (یا الان) چند ماه جلو
         active = await showcases.active_membership(session, sc.id, db_user.id)
         start = max(showcases.utcnow(), active.expires_at) if active and active.expires_at else showcases.utcnow()
@@ -213,7 +225,7 @@ async def joined_showcase(message: Message, session: AsyncSession, db_user: User
         sub_charge = (prev.sub_charge_id if prev and not p.is_first_recurring else p.telegram_payment_charge_id)
     session.add(showcases.Membership(showcase_id=sc.id, user_id=db_user.id, bot_id=bot.id, amount=p.total_amount,
                                      charge_id=p.telegram_payment_charge_id, expires_at=expires,
-                                     sub_charge_id=sub_charge))
+                                     sub_charge_id=sub_charge, canceled=manual_month))
     await session.commit()
     url = f"{webapp_url}/?store={bot.id}&bot={bot.id}&sc={sc.code}" if webapp_url else None
     markup = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(
@@ -260,7 +272,7 @@ async def paid(message: Message, session: AsyncSession, db_user: User, bot: Bot,
     session.add(purchase)
     await session.commit()  # خرید قبل از ارسال ثبت شود تا اگر ارسال خطا داد، خریدار دوباره پول ندهد
 
-    await send_pending(bot, message.chat.id, purchase, db_user.language)
+    await after_payment(bot, message.chat.id, purchase, content, session, db_user.language)
     await message.answer(t["powered_by"].format(main=main_username), disable_notification=True)
 
     owner = await session.get(User, seller.owner_id)
@@ -277,6 +289,8 @@ async def paid(message: Message, session: AsyncSession, db_user: User, bot: Bot,
 
 async def refund_block_reason(session: AsyncSession, purchase: Purchase, user: User) -> str | None:
     """دلیل رد بازپرداخت (کلید متن)، یا None اگر مجاز است."""
+    if not settings.refunds:
+        return "refund_failed"
     if purchase.refunded:
         return "refund_already"
     if purchase.opened_at is not None:
@@ -324,8 +338,8 @@ async def refund_purchase(bot: Bot, session: AsyncSession, purchase: Purchase, u
         return "refund_already" if purchase.refunded else "refund_opened"
     try:
         await bot.refund_star_payment(user_id=user.id, telegram_payment_charge_id=purchase.charge_id)
-    except TelegramBadRequest as e:
-        log.warning("Refund failed for purchase %s: %s", purchase.id, e.message)
+    except TelegramAPIError as e:  # هر خطای بله (نه فقط «درخواست بد»): خرید به حالت قبل برمی‌گردد
+        log.warning("Refund failed for purchase %s: %s", purchase.id, e)
         await session.execute(update(Purchase).where(Purchase.id == purchase.id).values(refunded=False, refunded_at=None))
         await session.commit()
         await session.refresh(purchase)

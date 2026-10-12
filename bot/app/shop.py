@@ -16,6 +16,7 @@ from app.bots import BotManager
 from app.connect import Connect, active_seller, create_shop_markup
 from app.db import Content, Membership, Purchase, Seller, Showcase, User
 from app.middlewares import main_bot
+from app.money import toman
 from app.texts import T
 
 log = logging.getLogger(__name__)
@@ -25,7 +26,7 @@ router.message.filter(F.chat.type == "private", main_bot)
 router.callback_query.filter(main_bot)
 
 # قانون فعلی تلگرام برای برداشت استارز ربات از Fragment؛ قبل از اعلام عمومی با مستندات رسمی چک شود
-WITHDRAW_MIN = 1000
+WITHDRAW_MIN = 0  # بله: پول هر فروش همان لحظه به کیف پول خود فروشنده می‌رود؛ حداقل برداشتی در کار نیست
 
 
 def btn(text: str, data: str) -> InlineKeyboardButton:
@@ -50,7 +51,7 @@ async def star_balance(manager: BotManager, seller: Seller, fresh: bool = False)
     try:
         amount = (await bot.get_my_star_balance()).amount
     except Exception:
-        log.warning("Could not read balance of seller bot %s", seller.bot_id)
+        log.debug("No balance API for seller bot %s", seller.bot_id)  # بله موجودی کیف پول را به بازو نمی‌دهد
         return cached[1] if cached else None
     _balance_cache[seller.bot_id] = (time.monotonic(), amount)
     return amount
@@ -88,7 +89,8 @@ async def shop_stats(session: AsyncSession, seller: Seller, manager: BotManager,
     today_n, today_sum = buckets.get(local_today.date(), (0, 0))
     links = await session.scalar(select(func.count(Content.id)).where(
         Content.bot_id == seller.bot_id, Content.is_active.is_(True)))
-    stats = {"balance": await star_balance(manager, seller), "today_n": today_n, "today_sum": today_sum,
+    # بله موجودی کیف پول را به بازو نمی‌دهد؛ «موجودی» = جمع فروش ثبت‌شده (پول همان لحظه در کیف پول خود فروشنده است)
+    stats = {"balance": total_sum, "today_n": today_n, "today_sum": today_sum,
              "total_n": total_n, "total_sum": total_sum, "links": links}
     if days:
         stats["chart"] = []
@@ -100,13 +102,14 @@ async def shop_stats(session: AsyncSession, seller: Seller, manager: BotManager,
 
 
 # --- کیف پول: استارزهای ربات فروشگاه مال خود فروشنده است ---
-HOLD_DAYS = 21  # قانون تلگرام: هر استارز درآمد ربات حدود ۲۱ روز بعد قابل برداشت می‌شود
+HOLD_DAYS = 0  # بله: بدون دوره‌ی انتظار
 # خرید Premium برای صاحب فروشگاه از موجودی ربات (giftPremiumSubscription؛ قیمت‌ها را خود تلگرام تعیین کرده)
-PREMIUM_OPTIONS = ((3, 1000), (6, 1500), (12, 2500))
+PREMIUM_OPTIONS = ()  # مخصوص تلگرام بود؛ در بله وجود ندارد
 
 
 async def wallet_view(session: AsyncSession, seller: Seller, manager: BotManager) -> dict:
-    """موجودی، سهم «در انتظار ۲۱ روزه» (تخمین از فروش‌های خودمان) و تاریخچه‌ی فروش."""
+    """جمع درآمد ثبت‌شده و تاریخچه‌ی فروش. در بله پول هر فروش همان لحظه به کیف پول خود فروشنده می‌رود:
+    دوره‌ی انتظار و حداقل برداشت وجود ندارد (pending همیشه ۰)."""
     now = datetime.now(timezone.utc).replace(tzinfo=None)
     hold_since = now - timedelta(days=HOLD_DAYS)
     rows = [(p, title or file_name, kind) for p, title, file_name, kind in (await session.execute(
@@ -118,11 +121,8 @@ async def wallet_view(session: AsyncSession, seller: Seller, manager: BotManager
         select(Membership, Showcase.title).join(Showcase, Showcase.id == Membership.showcase_id)
         .where(Membership.bot_id == seller.bot_id, Membership.amount > 0).order_by(Membership.id.desc()))).all()]
     rows.sort(key=lambda r: naive(r[0].created_at) or datetime.min, reverse=True)  # پایدار: هم‌زمان‌ها به ترتیب شناسه
-    held = [naive(p.created_at) for p, *_ in rows if not p.refunded and p.created_at and naive(p.created_at) > hold_since]
-    pending = sum(p.amount for p, *_ in rows if not p.refunded and p.created_at and naive(p.created_at) > hold_since)
-    balance = await star_balance(manager, seller, fresh=True)
-    if balance is not None:
-        pending = min(pending, balance)  # موجودی واقعی از تلگرام؛ سهم در انتظار از آن بیشتر نمی‌شود
+    held, pending = [], 0
+    balance = sum(p.amount for p, *_ in rows if not p.refunded)
     return {
         "balance": balance,
         "pending": pending,
@@ -233,7 +233,7 @@ async def shop_sales(callback: CallbackQuery, session: AsyncSession, db_user: Us
             if c.file_name:
                 label += f" · {html.escape(c.file_name[:25])}"
             refunded = f" ({t['refunded']})" if p.refunded else " 🚩" if p.reported_at else ""
-            lines.append(f"• {p.created_at:%Y-%m-%d %H:%M} — {label} — {p.amount} ⭐{refunded}")
+            lines.append(f"• {p.created_at:%Y-%m-%d %H:%M} — {label} — {toman(p.amount)}{refunded}")
         text = "\n".join(lines)
     await show(callback, text, back_markup(t))
 
@@ -256,7 +256,7 @@ async def shop_links(callback: CallbackQuery, session: AsyncSession, db_user: Us
             label = t["kinds"].get(c.kind, c.kind)
             if c.file_name:
                 label += f" · {html.escape(c.file_name[:25])}"
-            label += f" · {c.price_stars} ⭐" if c.price_stars else f" · {t['price_free']}"
+            label += f" · {toman(c.price_stars)}" if c.price_stars else f" · {t['price_free']}"
             if c.is_sensitive:
                 label += " · ⏳"
             link = f"https://ble.ir/{seller.bot_username}?start={c.code}"

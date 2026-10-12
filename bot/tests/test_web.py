@@ -176,35 +176,6 @@ async def test_translations_are_served_and_complete(client):
         assert key in dicts["en"], key
 
 
-async def test_new_user_language_from_telegram(env, client):
-    for uid, code, want in ((9001, "ru", "ru"), (9002, "uk", "ru"), (9003, "ar", "ar"), (9004, "zh-hans", "zh"),
-                            (9005, "en", "fa"), (9006, None, "fa")):
-        h = {"Authorization": "tma " + signed(settings.bot_token, uid, lang=code), "X-Bot-Id": ""}
-        assert (await (await client.get("/api/me", headers=h)).json())["lang"] == want, code
-
-
-async def test_balance_is_cached(env, client):
-    for _ in range(3):
-        assert (await client.get("/api/me", headers=as_user(OWNER, via_shop=False))).status == 200
-    assert len(env.tg.sent(SHOP_ID, "GetMyStarBalance")) <= 1
-
-
-async def test_profile_language_switch(env, client):
-    h = as_user(BUYER, via_shop=False)
-    assert (await client.patch("/api/me", headers=h, json={"lang": "en"})).status == 200
-    assert (await (await client.get("/api/me", headers=h)).json())["lang"] == "en"
-    assert (await client.patch("/api/me", headers=h, json={"lang": "xx"})).status == 400
-    # همان زبان در ربات هم اعمال می‌شود
-    await env.feed(env.main, __import__("tests.conftest", fromlist=["message"]).message(BUYER, "/help"))
-    assert "Help" in env.tg.texts()
-    # روسی/عربی/چینی: ربات به زبان خود کاربر جواب می‌دهد
-    for lang, title in (("ru", "Помощь"), ("ar", "المساعدة"), ("zh", "帮助")):
-        assert (await client.patch("/api/me", headers=h, json={"lang": lang})).status == 200
-        env.tg.clear()
-        await env.feed(env.main, __import__("tests.conftest", fromlist=["message"]).message(BUYER, "/help"))
-        assert title in env.tg.texts(), lang
-
-
 async def test_my_purchases_are_private(env, client):
     c = await make_product(env, price=10, title="خرید من")
     await pay(env, c, buyer=BUYER, charge="pp-1")
@@ -226,7 +197,7 @@ async def test_disconnect_shop_from_profile(env, client):
     assert (await client.post("/api/shop/disconnect", headers=as_user(STRANGER, via_shop=False))).status == 404
     assert (await client.post("/api/shop/disconnect", headers=as_user(OWNER, via_shop=False))).status == 200
     me = await (await client.get("/api/me", headers=as_user(OWNER, via_shop=False))).json()
-    assert me["shop"] is None and me["create_link"].startswith("https://ble.ir/newbot/Uploadfly_Bot/")
+    assert me["shop"] is None and me["create_link"] == "https://ble.ir/Uploadfly_Bot?start=connect"
 
 
 async def test_index_works_without_logo(client, monkeypatch, tmp_path):
@@ -238,17 +209,6 @@ async def test_index_works_without_logo(client, monkeypatch, tmp_path):
     monkeypatch.setattr(webmod, "WEBAPP_DIR", tmp_path)
     r = await client.get("/")
     assert r.status == 200 and "/static/logo.jpg?v=0" in await r.text()
-
-
-async def test_new_chat_user_language_from_telegram(env):
-    from app.db import User
-    from tests.conftest import message
-    m = message(9101, "/start")
-    m["message"]["from"]["language_code"] = "ru"
-    await env.feed(env.main, m)
-    async with SessionLocal() as s:
-        assert (await s.get(User, 9101)).language == "ru"
-    assert env.tg.texts()  # ربات جواب داد (متن انگلیسی تا ترجمه‌ی روسی)
 
 
 async def test_translation_change_refreshes_app_version():

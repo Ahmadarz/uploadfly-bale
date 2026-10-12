@@ -28,9 +28,29 @@
   2. No forward lock exists on Bale; the owner accepts this. Planned mitigation: show purchased content inside the Mini
      App instead of sending it to chat (works up to the 20 MB bot download limit).
   3. Link codes are letters and digits only.
-- Port roadmap: [x] 1. main bot on Bale → free links (awaiting the owner's test). [ ] 2. texts rewritten for Bale/rial
-  (no Telegram, no Stars). [ ] 3. seller's own bot + wallet token, rial prices, purchase flow. [ ] 4. Mini App on
-  `Bale.WebApp` (needs an HTTPS address). [ ] 5. in-app viewer. [ ] 6. server in Iran + website.
+  4. **Persian only.** `T()` always returns Persian; `LANGUAGES == ("fa",)`; `/lang` just says so. The old
+     en/ru/ar/zh texts are still in the files but unreachable. Bale-specific chat texts live in
+     `app/texts_bale.py` (overrides on top of the old Persian texts); say «بازو», «کیف پول بله», «تومان».
+  5. **No adult content at all** on Bale (Iranian law and Bale's rules); `/terms` says so. This replaces the
+     Telegram decision 5 below. (Changed by Claude on 2026-10-12 as a legal necessity; owner informed.)
+- Money model in code:
+  - Internal unit is **toman** everywhere (`app/money.py`: limits, presets, `toman()` formatter; real unit 1000,
+    tests run with `PRICE_UNIT=1`). The columns `price_stars`/`amount` and the internal currency tag `"XTR"` are old
+    names only. `app/bale.py` converts at the border: outgoing invoices → `IRR` ×10 + the shop's wallet token
+    (`set_wallet`, `NoWallet`), incoming payments → toman (`to_toman`, called in `BotManager._handle`).
+  - Seller connect (`app/connect.py`): `/connect` → bot token → wallet token (`Seller.wallet_enc`, encrypted, checked
+    with a throw-away `createInvoiceLink`); `/wallet` to set it later, `/skip` to postpone. No wallet = free content
+    only (`wallet_need`).
+  - `REFUNDS` in `.env` (default off): off = content is delivered right after payment, no refund button, refund
+    endpoints answer `refund_failed`. Turn on only after a real-wallet refund is verified on Bale.
+  - Monthly showcases have no auto-renewal: each payment adds 30 days (`Membership.canceled=True`), members may renew
+    early; reminders ask them to pay again.
+  - Wallet page: `balance` = sum of recorded income; no hold period, no minimum, no Premium.
+- Port roadmap: [x] 1. main bot on Bale → free links. [x] 2. chat texts for Bale/toman. [x] 3. seller's own bot +
+  wallet token, toman prices, purchase flow (all verified by tests and a live smoke run of the main-bot commands;
+  the owner still has to test a real purchase in a seller bot). [ ] 4. Mini App on `Bale.WebApp` (needs an HTTPS
+  address; `webapp/` is still the Telegram version and is off while `WEBAPP_URL` is empty). [ ] 5. in-app viewer.
+  [ ] 6. server + website (`website/` and `deploy/` are still the Telegram version).
 
 ---
 # Original Telegram context

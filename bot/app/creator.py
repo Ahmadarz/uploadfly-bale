@@ -41,8 +41,7 @@ CREATOR_CATEGORIES = ("fitness", "education", "art", "music", "photo", "cooking"
                       "tech", "business", "other")
 DM_MODES = ("all", "fans", "off")
 SEGMENTS = ("all", "subscribers", "expired", "buyers")
-TIP_PRESETS = (10, 50, 100, 500)
-TIP_MAX = 2500
+from app.money import TIP_MAX, TIP_MIN, TIP_PRESETS  # noqa: E402  تومان
 BIO_MAX, WELCOME_MAX = 300, 1000
 BROADCASTS_PER_DAY = 3        # پیام گروهی: سقف روزانه‌ی هر سازنده
 DM_PER_HOUR = 30              # پیام هر فن به هر سازنده در یک ساعت
@@ -228,13 +227,13 @@ def parse_tip(payload: str) -> tuple[int, int | None] | None:
     if len(parts) not in (2, 3) or parts[0] != "t" or not all(is_id(p) for p in parts[1:]):
         return None
     amount = int(parts[1])
-    if not 1 <= amount <= TIP_MAX:
+    if not TIP_MIN <= amount <= TIP_MAX:
         return None
     return amount, (int(parts[2]) if len(parts) == 3 else None)
 
 
 def tip_markup(lang: str) -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text=f"{a} ⭐", callback_data=f"tip:{a}")
+    return InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text=f"{a:,}", callback_data=f"tip:{a}")
                                                   for a in TIP_PRESETS]])
 
 
@@ -369,8 +368,8 @@ def ppv_markup(content_id: int, target: str, cap: int, lang: str) -> InlineKeybo
     prices = [p for p in PRICE_PRESETS if p <= cap]
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text=t["btn_ppv_free"], callback_data=f"ppv:{content_id}:{target}:0")],
-        [InlineKeyboardButton(text=f"🔒 {p} ⭐", callback_data=f"ppv:{content_id}:{target}:{p}") for p in prices[:3]],
-        *([[InlineKeyboardButton(text=f"🔒 {p} ⭐", callback_data=f"ppv:{content_id}:{target}:{p}") for p in prices[3:]]]
+        [InlineKeyboardButton(text=f"🔒 {p:,}", callback_data=f"ppv:{content_id}:{target}:{p}") for p in prices[:3]],
+        *([[InlineKeyboardButton(text=f"🔒 {p:,}", callback_data=f"ppv:{content_id}:{target}:{p}") for p in prices[3:]]]
           if prices[3:] else []),
         [InlineKeyboardButton(text=t["btn_cancel"], callback_data=f"ppv:{content_id}:{target}:x")],
     ])

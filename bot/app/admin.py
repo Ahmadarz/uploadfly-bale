@@ -94,7 +94,7 @@ async def stats_cmd(message: Message, session: AsyncSession):
     banned = await session.scalar(select(func.count(User.id)).where(User.is_banned.is_(True)))
     week = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=7)
     lines = [f"📊 <b>آمار UploadFly</b>\n\n👥 کاربران: {users} (مسدود: {banned})\n🏪 فروشگاه فعال: {shops}\n"
-             f"📦 محصول/لینک فعال: {products}\n🛒 فروش: {sales} ({stars} ⭐)\n⛔️ فایل در لیست سیاه: {blocked}"]
+             f"📦 محصول/لینک فعال: {products}\n🛒 فروش: {sales} ({stars:,} تومان)\n⛔️ فایل در لیست سیاه: {blocked}"]
     for title, since in (("🧭 <b>مسیر کاربران</b> (همه)", None), ("🆕 <b>کاربران ۷ روز اخیر</b>", week)):
         lines.append(f"\n{title}")
         steps = await funnel(session, since)
@@ -255,13 +255,13 @@ async def refundtests_cmd(message: Message, session: AsyncSession):
     await message.answer(
         "↩️ <b>برگرداندن استارزهای خرید</b>\n\n"
         f"فروشگاه: {', '.join('@' + b for b in shops.values())}\n"
-        f"{len(purchases)} خرید + {len(members)} عضویت = <b>{total} ⭐</b>\n"
+        f"{len(purchases)} خرید + {len(members)} عضویت = <b>{total:,} تومان</b>\n"
         f"به این حساب‌ها برمی‌گردد: {', '.join(f'<code>{b}</code>' for b in buyers)}\n\n"
         "⚠️ این کار برگشت‌پذیر نیست: استارز از موجودی ربات فروشگاهت کم و به خریدار برگردانده می‌شود، "
         "دسترسی خریدار به آن محتواها بسته می‌شود و تمدید اشتراک‌ها خاموش می‌شود. "
         "فقط وقتی بزن که این خریدها آزمایشی بوده‌اند.",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
-            InlineKeyboardButton(text=f"✅ برگرداندن {total} ⭐", callback_data="rft:yes"),
+            InlineKeyboardButton(text=f"✅ برگرداندن {total:,} تومان", callback_data="rft:yes"),
             InlineKeyboardButton(text="انصراف", callback_data="rft:no")]]))
 
 
@@ -310,7 +310,7 @@ async def refundtests_cb(callback: CallbackQuery, session: AsyncSession, manager
             done, stars = done + 1, stars + m.amount
     await session.commit()
     log.warning("Admin %s refunded %s test payments (%s stars)", callback.from_user.id, done, stars)
-    text = f"✅ {done} پرداخت برگشت داده شد: <b>{stars} ⭐</b> به حساب خریدار(ها) برگشت."
+    text = f"✅ {done} پرداخت برگشت داده شد: <b>{stars:,} تومان</b> به حساب خریدار(ها) برگشت."
     if failed:
         text += f"\n\n⚠️ {len(failed)} مورد برنگشت:\n" + "\n".join(f"• {html.escape(f)}" for f in failed[:10])
         text += "\nبعداً دوباره /refundtests را بزن."

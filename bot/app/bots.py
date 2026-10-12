@@ -14,7 +14,7 @@ from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError, Teleg
 from aiogram.types import BotCommand, BotCommandScopeChat
 from sqlalchemy import delete, select
 
-from app.bale import make_bale_bot
+from app.bale import make_bale_bot, set_wallet, to_toman
 from app.crypto import decrypt
 from app.db import DeleteJob, SessionLocal, Seller, User
 from app.texts import COMMANDS, MAIN_COMMANDS, MENU_LANG_CODES, SELLER_COMMANDS, T
@@ -80,6 +80,7 @@ class BotManager:
             sellers = (await session.scalars(select(Seller).where(Seller.is_active.is_(True)))).all()
         for s in sellers:
             try:
+                set_wallet(s.bot_id, decrypt(s.wallet_enc) if s.wallet_enc else None)
                 await self.start(make_bot(decrypt(s.token_enc)))
             except Exception:
                 log.exception("Could not start seller bot @%s", s.bot_username)
@@ -200,7 +201,7 @@ class BotManager:
 
     async def _handle(self, bot: Bot, update) -> None:
         try:
-            await self.dp.feed_update(bot, update)
+            await self.dp.feed_update(bot, to_toman(update))  # بله ریال می‌فرستد؛ برنامه تومان حساب می‌کند
         except Exception:
             log.exception("Update %s failed", update.update_id)
 
@@ -231,7 +232,7 @@ async def setup_seller_bot(bot: Bot) -> None:
 
 
 def command_list(lang: str, seller: bool) -> list[BotCommand]:
-    names = COMMANDS.get(lang, COMMANDS["en"])
+    names = COMMANDS["fa"]
     return [BotCommand(command=c, description=names[c]) for c in (SELLER_COMMANDS if seller else MAIN_COMMANDS)]
 
 

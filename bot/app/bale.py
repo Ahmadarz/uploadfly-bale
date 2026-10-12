@@ -4,6 +4,9 @@
 - بله HTML نمی‌فهمد و هر متنی را Markdown ساده می‌خواند (*پررنگ*، _کج_، [متن](لینک)). متن‌های برنامه HTML
   نوشته شده‌اند؛ همین‌جا، درست قبل از فرستادن، تبدیل می‌شوند تا بقیه‌ی کد دست نخورد.
 - چند متد در بله نیست (توضیح بازو، دکمه‌ی منو)؛ بی‌صدا رد می‌شوند تا برنامه به‌خاطرشان نایستد.
+- پول: داخل برنامه همه‌ی مبلغ‌ها «تومان» است (ستون‌های price_stars/amount و برچسب داخلی "XTR" از نسخه‌ی تلگرام
+  مانده‌اند و فقط نام‌اند). بله ریال می‌خواهد و هر فاکتور باید توکن کیف پول صاحب همان بازو را داشته باشد؛ هر دو
+  همین‌جا، در مرز برنامه و بله، تبدیل می‌شوند: فاکتور خروجی (تومان ← ریال + توکن کیف پول) و پرداخت ورودی (ریال ← تومان).
 """
 import html
 import re
@@ -12,12 +15,47 @@ from aiogram import Bot
 from aiogram.client.session.aiohttp import AiohttpSession
 from aiogram.client.session.middlewares.base import BaseRequestMiddleware
 from aiogram.client.telegram import TelegramAPIServer
+from aiogram.types import Update
 
 API = TelegramAPIServer.from_base("https://tapi.bale.ai")
 LINK_HOST = "ble.ir"
 
 # بررسی‌شده روی بازوی واقعی (2026-10-12): این متدها «Not Implemented» یا «handler not found» برمی‌گردانند
 UNSUPPORTED = {"SetMyDescription", "SetMyShortDescription", "SetMyName", "SetChatMenuButton"}
+
+INTERNAL_CURRENCY = "XTR"   # برچسب داخلی برنامه برای «تومان» (نام قدیمی؛ به بله فرستاده نمی‌شود)
+BALE_CURRENCY = "IRR"
+RIALS_PER_TOMAN = 10
+TEST_WALLET = "WALLET-TEST-1111111111111111"  # توکن آزمایشی بله: مثل واقعی رفتار می‌کند ولی پولی جابه‌جا نمی‌شود
+
+# توکن کیف پول هر بازو (شناسه‌ی بازو ← توکن)؛ هنگام روشن شدن بازو و تغییر کیف پول پر می‌شود
+_wallets: dict[int, str] = {}
+
+
+class NoWallet(Exception):
+    """بازویی که هنوز توکن کیف پول ندارد نمی‌تواند فاکتور بسازد."""
+
+
+def set_wallet(bot_id: int, token: str | None) -> None:
+    if token:
+        _wallets[bot_id] = token
+    else:
+        _wallets.pop(bot_id, None)
+
+
+def to_toman(update: Update) -> Update:
+    """پرداخت ورودی بله (ریال) ← واحد داخلی برنامه (تومان)."""
+    q = update.pre_checkout_query
+    if q is not None and q.currency == BALE_CURRENCY:
+        return update.model_copy(update={"pre_checkout_query": q.model_copy(update={
+            "currency": INTERNAL_CURRENCY, "total_amount": q.total_amount // RIALS_PER_TOMAN})})
+    m = update.message
+    p = m.successful_payment if m is not None else None
+    if p is not None and p.currency == BALE_CURRENCY:
+        paid = p.model_copy(update={"currency": INTERNAL_CURRENCY, "total_amount": p.total_amount // RIALS_PER_TOMAN})
+        return update.model_copy(update={"message": m.model_copy(update={"successful_payment": paid})})
+    return update
+
 
 _LINK = re.compile(r'<a\s+href="([^"]*)"\s*>(.*?)</a>', re.IGNORECASE | re.DOTALL)
 _BOLD = re.compile(r"</?(?:b|strong)>", re.IGNORECASE)
@@ -46,6 +84,14 @@ class BaleMiddleware(BaseRequestMiddleware):
         if name in UNSUPPORTED:
             return True
         update = {}
+        if name in ("SendInvoice", "CreateInvoiceLink"):
+            token = _wallets.get(bot.id)
+            if not token:
+                raise NoWallet(f"bot {bot.id} has no wallet token")
+            update.update(provider_token=token, currency=BALE_CURRENCY, prices=[
+                p.model_copy(update={"amount": p.amount * RIALS_PER_TOMAN}) for p in method.prices])
+            if getattr(method, "subscription_period", None):
+                update["subscription_period"] = None  # بله اشتراک با تمدید خودکار ندارد
         for field in ("text", "caption"):
             value = getattr(method, field, None)
             if isinstance(value, str) and name != "AnswerCallbackQuery":

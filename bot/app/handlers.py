@@ -17,10 +17,11 @@ from app.bots import set_user_menu
 from app.connect import Connect, active_seller, create_shop_markup
 from app.content import deliver, extract_content
 from app.trust import is_blacklisted, price_cap
-from app.products import MAX_PRICE, PRICE_PRESETS, build_link, link_keyboard, publish
+from app.products import MAX_PRICE, MIN_PRICE, PRICE_PRESETS, build_link, link_keyboard, publish
 from app.config import settings
+from app.money import toman
 from app.db import Content, Seller, User, cb_id, is_id
-from app.payments import get_purchase, open_purchase, send_offer, send_pending
+from app.payments import after_payment, get_purchase, open_purchase, send_offer
 from app.texts import LANGUAGES, T, format_specs
 
 router = Router()
@@ -51,13 +52,11 @@ def price_keyboard(content: Content, lang: str, cap: int) -> InlineKeyboardMarku
     t = T(lang)
     content_id = content.id
     # فقط قیمت‌های زیر سقف اعتماد فعلی فروشنده
-    presets = [InlineKeyboardButton(text=f"{p} ⭐", callback_data=f"price:{content_id}:{p}")
+    presets = [InlineKeyboardButton(text=f"{p:,}", callback_data=f"price:{content_id}:{p}")
                for p in PRICE_PRESETS if p <= cap]
     sensitive = t["btn_sensitive_on"] if content.is_sensitive else t["btn_sensitive_off"]
-    save = t["btn_save_on"] if content.allow_save else t["btn_save_off"]
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text=sensitive, callback_data=f"sens:{content_id}")],
-        [InlineKeyboardButton(text=save, callback_data=f"save:{content_id}")],
         [InlineKeyboardButton(text=t["btn_free"], callback_data=f"price:{content_id}:0")],
         presets[:3], presets[3:],
         [InlineKeyboardButton(text=t["btn_custom_price"], callback_data=f"price:{content_id}:custom")],
@@ -143,7 +142,7 @@ async def open_link(message: Message, command: CommandObject, session: AsyncSess
     if purchase is None:
         await deliver(bot, message.chat.id, content, session, db_user.language)
     elif purchase.opened_at is None:
-        await send_pending(bot, message.chat.id, purchase, db_user.language)  # هنوز بین نمایش و بازپرداخت انتخاب نکرده
+        await after_payment(bot, message.chat.id, purchase, content, session, db_user.language)
     else:
         await open_purchase(bot, message.chat.id, purchase, content, session, db_user.language)
 
@@ -251,11 +250,7 @@ async def terms_cmd(message: Message, db_user: User):
 
 @router.message(Command("lang"))
 async def lang_cmd(message: Message, db_user: User):
-    names = {"fa": "فارسی", "en": "English", "ru": "Русский", "ar": "العربية", "zh": "中文"}
-    buttons = [InlineKeyboardButton(text=("✅ " if code == db_user.language else "") + names[code],
-                                    callback_data=f"lang:{code}") for code in LANGUAGES]
-    await message.answer(T(db_user.language)["lang_choose"], reply_markup=InlineKeyboardMarkup(
-        inline_keyboard=[buttons[i:i + 2] for i in range(0, len(buttons), 2)]))
+    await message.answer(T(db_user.language)["lang_choose"])  # بله: فقط فارسی
 
 
 @router.callback_query(F.data.in_({f"lang:{code}" for code in LANGUAGES}))
@@ -287,7 +282,7 @@ async def my_links(message: Message, session: AsyncSession, db_user: User, bot: 
         if c.file_name:
             label += f" · {html.escape(c.file_name[:30])}"
         if c.price_stars:
-            label += f" · {c.price_stars} ⭐"
+            label += f" · {toman(c.price_stars)}"
         lines.append(f"• {label}\n   <code>{link}</code>  ({c.views} {t['views']})")
     await message.answer("\n".join(lines), disable_web_page_preview=True)
 
@@ -326,13 +321,17 @@ async def save_toggle(callback: CallbackQuery, session: AsyncSession, db_user: U
 
 @router.callback_query(F.data.startswith("price:"))
 async def price_chosen(callback: CallbackQuery, session: AsyncSession, db_user: User, bot: Bot,
-                       state: FSMContext, seller: Seller | None):
+                       state: FSMContext, seller: Seller | None, main_username: str):
     t = T(db_user.language)
     _, content_id, value = (callback.data.split(":") + ["", ""])[:3]
     content = await session.get(Content, int(content_id)) if is_id(content_id) else None
     if seller is None or content is None or content.owner_id != db_user.id or content.bot_id != bot.id \
             or not content.is_draft:
         await callback.answer()
+        return
+    if value != "0" and not seller.wallet_enc:  # بدون کیف پول، فاکتوری نمی‌شود ساخت
+        await callback.answer()
+        await callback.message.answer(t["wallet_need"].format(main=main_username))
         return
     await callback.answer()  # زود جواب بده؛ ساخت پیش‌نمایش ممکن است چند ثانیه طول بکشد
     await callback.message.edit_reply_markup(reply_markup=None)
@@ -351,7 +350,7 @@ async def price_typed(message: Message, session: AsyncSession, db_user: User, bo
     t = T(db_user.language)
     text = message.text.strip().translate(str.maketrans("۰۱۲۳۴۵۶۷۸۹", "0123456789"))
     cap = await price_cap(session, bot.id)
-    if not text.isdigit() or not 1 <= int(text) <= cap:
+    if not text.isdigit() or not MIN_PRICE <= int(text) <= cap:
         await message.answer(t["ask_price"].format(max=cap) + "\n" + t["price_cap_hint"].format(cap=cap))
         return
     content = await session.get(Content, (await state.get_data())["content_id"])

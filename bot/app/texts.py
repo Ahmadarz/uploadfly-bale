@@ -492,37 +492,26 @@ for _lang, _texts in CREATOR_TEXTS.items():
 _MERGED = {lang: {**TEXTS["en"], **texts} for lang, texts in TEXTS.items()}
 
 
+# نسخه‌ی بله: متن‌های مخصوص بله روی فارسی می‌نشینند و ربات فقط فارسی است (کاربران بله ایرانی‌اند).
+# متن‌های زبان‌های دیگر از نسخه‌ی تلگرام در فایل مانده‌اند ولی به کسی نشان داده نمی‌شوند
+from app.texts_bale import BALE_COMMANDS, BALE_FA, BALE_MAIN_COMMANDS, BALE_SELLER_COMMANDS  # noqa: E402
+_MERGED["fa"].update(BALE_FA)
+
+
 def T(lang: str) -> dict:
-    return _MERGED.get(lang, _MERGED["en"])
+    return _MERGED["fa"]
 
 
-# زبان‌های Mini App (متن‌های ربات فعلاً فقط fa/en؛ بقیه انگلیسی می‌بینند تا ترجمه شوند)
-LANGUAGES = ("fa", "en", "ru", "ar", "zh")
+LANGUAGES = ("fa",)
 
-
-# منوی دستورها (دکمه‌ی «/» در تلگرام) به هر ۵ زبان
-COMMANDS = {
-    "fa": {"donate": "دونیت به سازنده", "support": "پشتیبانی", "paysupport": "پشتیبانی پرداخت", "mylinks": "لینک‌های من", "shop": "فروشگاه من", "balance": "موجودی استارز", "lang": "زبان", "help": "راهنما"},
-    "en": {"donate": "Donate to the creator", "support": "Support", "paysupport": "Payment support", "mylinks": "My links", "shop": "My shop", "balance": "Stars balance", "lang": "Language", "help": "Help"},
-    "ru": {"donate": "Донат автору", "support": "Поддержка", "paysupport": "Поддержка оплаты", "mylinks": "Мои ссылки", "shop": "Мой магазин", "balance": "Баланс Stars", "lang": "Язык", "help": "Помощь"},
-    "ar": {"donate": "تبرّع للصانع", "support": "الدعم", "paysupport": "دعم الدفع", "mylinks": "روابطي", "shop": "متجري", "balance": "رصيد Stars", "lang": "اللغة", "help": "المساعدة"},
-    "zh": {"donate": "打赏创作者", "support": "客服", "paysupport": "支付支持", "mylinks": "我的链接", "shop": "我的店铺", "balance": "Stars 余额", "lang": "语言", "help": "帮助"},
-}
-MAIN_COMMANDS = ("mylinks", "shop", "support", "lang", "help")
-SELLER_COMMANDS = ("donate", "mylinks", "balance", "lang", "help", "paysupport")
-# زبان تلگرام → منوی پیش‌فرض. انگلیسی عمداً نیست: تلگرام انگلیسی ایرانی‌ها منوی فارسی (پیش‌فرض) می‌گیرد
-MENU_LANG_CODES = {"ru": "ru", "uk": "ru", "be": "ru", "kk": "ru", "ar": "ar", "zh": "zh"}
+# منوی دستورها (دکمه‌ی «/» در بله)
+COMMANDS = {"fa": BALE_COMMANDS}
+MAIN_COMMANDS = BALE_MAIN_COMMANDS
+SELLER_COMMANDS = BALE_SELLER_COMMANDS
+MENU_LANG_CODES: dict[str, str] = {}   # بله: منوی جدا برای زبان‌های دیگر نداریم
 
 
 def detect_language(code: str | None) -> str:
-    """زبان کاربر تازه از زبان تلگرامش. پیش‌فرض فارسی (بیشتر کاربران ایرانی تلگرام انگلیسی دارند)."""
-    code = (code or "").lower()
-    if code.startswith(("ru", "uk", "be", "kk")):
-        return "ru"
-    if code.startswith("ar"):
-        return "ar"
-    if code.startswith("zh"):
-        return "zh"
     return "fa"
 
 

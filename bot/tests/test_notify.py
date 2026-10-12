@@ -53,32 +53,8 @@ async def test_default_menus_per_telegram_language(env):
     await setup_commands(env.main, seller=False)
     calls = env.tg.sent(MAIN_ID, "SetMyCommands")
     by_lang = {p.get("language_code", ""): [c["description"] for c in p["commands"]] for p in calls}
-    assert by_lang[""][0] == "لینک‌های من" and by_lang["ru"][0] == "Мои ссылки"
-    assert by_lang["ar"][0] == "روابطي" and by_lang["zh"][0] == "我的链接" and "en" not in by_lang
+    assert by_lang[""][0] == "لینک‌های من" and set(by_lang) == {""}   # بله: فقط منوی فارسی
     assert {p["language_code"] for p in env.tg.sent(MAIN_ID, "DeleteMyCommands")} == {"fa", "en"}
-
-
-async def test_personal_menu_only_when_language_differs(env):
-    # تلگرام فارسی/انگلیسی + زبان فارسی = منوی پیش‌فرض کافی است
-    await env.feed(env.main, message(BUYER, "/start"))
-    assert not env.tg.sent(MAIN_ID, "SetMyCommands")
-    # کاربر در Mini App/ربات انگلیسی را انتخاب کرده → منوی شخصی انگلیسی
-    async with SessionLocal() as s:
-        (await s.get(User, BUYER)).language = "en"
-        await s.commit()
-    await env.feed(env.main, message(BUYER, "/start"))
-    (p,) = env.tg.sent(MAIN_ID, "SetMyCommands")
-    assert p["scope"]["chat_id"] == BUYER and p["commands"][0]["description"] == "My links"
-    # برگشت به فارسی با /lang → منوی شخصی پاک می‌شود
-    env.tg.clear()
-    await env.feed(env.main, callback(BUYER, "lang:fa"))
-    assert env.tg.sent(MAIN_ID, "DeleteMyCommands")[0]["scope"]["chat_id"] == BUYER
-    # ربات فروشنده: منوی مخصوص فروشنده (balance به‌جای shop)
-    env.tg.clear()
-    await set_user_menu(env.shop, BUYER, "ru", "fa", seller=True)
-    (p,) = env.tg.sent(SHOP_ID, "SetMyCommands")
-    assert [c["command"] for c in p["commands"]] == ["donate", "mylinks", "balance", "lang", "help", "paysupport"]
-    assert p["commands"][2]["description"] == "Баланс Stars"
 
 
 async def test_menu_failure_does_not_break_start(env, monkeypatch):

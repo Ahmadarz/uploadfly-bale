@@ -56,14 +56,14 @@ async def test_tip_flow(env):
     async with SessionLocal() as s:
         assert await s.scalar(select(func.count(Tip.id))) == 1
     to_owner = [m for m in env.tg.sent(SHOP_ID, "SendMessage") if m["chat_id"] == OWNER]
-    assert len(to_owner) == 1 and "دونیت تازه" in to_owner[0]["text"] and not to_owner[0].get("disable_notification")
+    assert len(to_owner) == 1 and "حمایت مالی تازه" in to_owner[0]["text"] and not to_owner[0].get("disable_notification")
     assert "فن شماره‌ی" in to_owner[0]["text"] and "Buyer" not in to_owner[0]["text"]   # ناشناس
     assert "ممنون" in env.tg.texts(SHOP_ID)
     # دونیت هم فن حساب می‌شود (پیام دادن مجاز)
     async with SessionLocal() as s:
         assert await creator.is_fan(s, SHOP_ID, BUYER)
     await env.feed(env.shop, message(OWNER, "/tip"))
-    assert "دونیت رو فن‌ها به تو می‌دن" in env.tg.texts(SHOP_ID)
+    assert "حمایت مالی رو مشتری‌ها به تو می‌دن" in env.tg.texts(SHOP_ID)
 
 
 async def dm_links(fan=None):
@@ -320,7 +320,7 @@ async def test_creator_referral(env):
     async with SessionLocal() as s:
         u, self_ref = await s.get(User, 777), await s.get(User, 778)
     assert (u.source, u.referrer_id) == ("ref", OWNER) and self_ref.referrer_id is None
-    assert "صفحه‌ی سازنده" in "".join(m["text"] for m in env.tg.sent(MAIN_ID, "SendMessage"))
+    assert "خوش اومدی" in "".join(m["text"] for m in env.tg.sent(MAIN_ID, "SendMessage"))
 
 
 async def test_scheduled_post_goes_live(env):

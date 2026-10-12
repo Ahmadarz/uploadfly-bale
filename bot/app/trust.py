@@ -5,14 +5,15 @@ from aiogram import Bot
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.money import MAX_PRICE, PRICE_TIERS
 from app.db import Blacklist, Content, Purchase, Seller, User
 from app.texts import T
 
 log = logging.getLogger(__name__)
 
 # سقف قیمت بر اساس تعداد فروش موفق (بازپرداخت‌نشده). فروشنده‌ی تازه نمی‌تواند روز اول مبلغ بزرگی بگیرد و برود
-PRICE_TIERS = ((5, 100), (20, 300), (100, 1000))  # (کمتر از این تعداد فروش، سقف)
-TOP_CAP = 10000                                   # سقف خود تلگرام برای یک فاکتور
+# سقف‌ها به تومان در app/money.py  # (کمتر از این تعداد فروش، سقف)
+TOP_CAP = MAX_PRICE  # قبلاً:                                   # سقف خود تلگرام برای یک فاکتور
 
 
 async def price_cap(session: AsyncSession, bot_id: int) -> int:

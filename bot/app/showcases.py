@@ -12,11 +12,12 @@ import string
 from datetime import datetime, timedelta, timezone
 
 from aiogram import Bot
-from aiogram.exceptions import TelegramBadRequest
+from aiogram.exceptions import TelegramAPIError, TelegramBadRequest
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, LabeledPrice, WebAppInfo
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.db import Content, Membership, Purchase, Seller, SessionLocal, Showcase, ShowcaseItem, User, is_id
 from app.texts import T
 
@@ -200,6 +201,8 @@ async def unlock_item(session: AsyncSession, membership: Membership, content: Co
 
 async def refund_membership(bot: Bot, session: AsyncSession, m: Membership) -> str | None:
     """بازپرداخت ورودی ویترین: فقط ۲۴ ساعت و فقط اگر هنوز هیچ محتوایی باز نشده."""
+    if not settings.refunds:
+        return "refund_failed"
     if m.refunded:
         return "refund_already"
     if m.opened_at is not None:
@@ -217,8 +220,8 @@ async def refund_membership(bot: Bot, session: AsyncSession, m: Membership) -> s
         return "refund_already" if m.refunded else "sc_refund_opened"
     try:
         await bot.refund_star_payment(user_id=m.user_id, telegram_payment_charge_id=m.charge_id)
-    except TelegramBadRequest as e:
-        log.warning("Membership refund failed %s: %s", m.id, e.message)
+    except TelegramAPIError as e:
+        log.warning("Membership refund failed %s: %s", m.id, e)
         await session.execute(update(Membership).where(Membership.id == m.id).values(refunded=False, refunded_at=None))
         await session.commit()
         await session.refresh(m)

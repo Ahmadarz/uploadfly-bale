@@ -100,6 +100,8 @@ class Seller(Base):
     bot_id: Mapped[int] = mapped_column(BigInteger, unique=True, index=True)
     bot_username: Mapped[str] = mapped_column(String(64))
     token_enc: Mapped[str] = mapped_column(Text)  # توکن رمزنگاری‌شده؛ هرگز متن خام ذخیره نمی‌شود
+    # توکن کیف پول بله‌ی همین بازو (رمزنگاری‌شده)؛ بدون آن فروش پولی ممکن نیست. پول مستقیم به همین کیف پول می‌رود
+    wallet_enc: Mapped[str | None] = mapped_column(Text)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     # تعلیق خودکار به‌خاطر بازپرداخت زیاد: فروش جدید ممکن نیست، خریدارهای قبلی هنوز به محتوایشان دسترسی دارند
     is_suspended: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
@@ -344,7 +346,7 @@ _ADDED_COLUMNS = {
                   "background": "VARCHAR(24)", "trial_days": "INTEGER NOT NULL DEFAULT 0", "bundles": "TEXT"},
     "users": {"tz_offset": "INTEGER", "source": "VARCHAR(32)", "referrer_id": "BIGINT",
               "adult_ok": "BOOLEAN NOT NULL DEFAULT false"},
-    "sellers": {"is_suspended": "BOOLEAN NOT NULL DEFAULT false", "logo": "VARCHAR(24)", "theme": "VARCHAR(16)",
+    "sellers": {"is_suspended": "BOOLEAN NOT NULL DEFAULT false", "wallet_enc": "TEXT", "logo": "VARCHAR(24)", "theme": "VARCHAR(16)",
                 "cover": "VARCHAR(24)", "style": "TEXT", "links": "TEXT",
                 "background": "VARCHAR(24)", "bio": "TEXT", "category": "VARCHAR(24)",
                 "listed": "BOOLEAN NOT NULL DEFAULT true", "dm_mode": "VARCHAR(8) NOT NULL DEFAULT 'fans'",

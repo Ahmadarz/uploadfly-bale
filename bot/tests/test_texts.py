@@ -1,10 +1,7 @@
-"""متن‌های چت ربات به ۵ زبان: کلیدها و جاهای خالی یکی، HTML معتبر تلگرام، /lang با ۵ گزینه."""
-import re
-
-import pytest
-
-from app.texts import COMMANDS, LANGUAGES, TEXTS, T, human_wait
-from tests.conftest import BUYER, MAIN_ID, callback, check_html, message
+"""متن‌های چت در بله: فقط فارسی، HTML معتبر (لایه‌ی بله به Markdown تبدیلش می‌کند)، بدون حرفی از تلگرام و استارز."""
+from app.bale import to_bale
+from app.texts import COMMANDS, LANGUAGES, MAIN_COMMANDS, SELLER_COMMANDS, T, human_wait
+from tests.conftest import BUYER, MAIN_ID, check_html, message
 
 
 def flat(d, p=""):
@@ -12,32 +9,30 @@ def flat(d, p=""):
         yield from flat(v, p + k + ".") if isinstance(v, dict) else [(p + k, v)]
 
 
-@pytest.mark.parametrize("lang", LANGUAGES)
-def test_every_language_has_every_text(lang):
-    en, other = dict(flat(TEXTS["en"])), dict(flat(TEXTS[lang]))
-    assert other.keys() == en.keys(), set(en) ^ set(other)
-    for key, value in en.items():
-        names = lambda v: set(re.findall(r"\{(\w+)\}", v))
-        assert names(other[key]) == names(value), (lang, key)
-        check_html(other[key].replace("{", "").replace("}", ""), key)   # تلگرام HTML نامعتبر را رد می‌کند
-    assert COMMANDS[lang].keys() == COMMANDS["en"].keys()
+def test_texts_are_persian_only_and_valid():
+    assert LANGUAGES == ("fa",) and T("en") is T("fa") and T("xx") is T("fa")
+    for key, value in flat(T("fa")):
+        plain = value.replace("{", "").replace("}", "")
+        check_html(plain, key)
+        to_bale(plain)                       # تبدیل به قالب بله خطا نمی‌دهد
 
 
-def test_wait_time_in_each_language():
+def test_no_telegram_or_stars_left_in_texts():
+    for key, value in flat(T("fa")):
+        for word in ("تلگرام", "استارز", "Telegram", "Stars", "BotFather", "Fragment", "t.me", "Premium"):
+            assert word not in value, (key, word)
+        assert "⭐" not in value or key in ("rate_hint", "rate_thanks"), key   # ستاره فقط برای امتیاز
+
+
+def test_command_menus():
+    assert set(MAIN_COMMANDS) | set(SELLER_COMMANDS) <= set(COMMANDS["fa"])
+    assert "lang" not in MAIN_COMMANDS and "wallet" in MAIN_COMMANDS
+
+
+def test_wait_time():
     assert human_wait(3720, "fa") == "1 ساعت و 2 دقیقه"
-    assert human_wait(3720, "ru") == "1 ч 2 мин" and human_wait(3600, "zh") == "1 小时"
-    assert human_wait(30, "ar") == "1 دقيقة"
 
 
-async def test_lang_command_offers_five_and_switches(env):
+async def test_lang_command_says_persian_only(env):
     await env.feed(env.main, message(BUYER, "/lang"))
-    labels = [b["text"] for b in env.tg.buttons(MAIN_ID)]
-    assert len(labels) == 5 and "✅ فارسی" in labels and "Русский" in labels and "中文" in labels
-    env.tg.clear()
-    await env.feed(env.main, callback(BUYER, "lang:ar"))
-    assert "العربية" in env.tg.texts(MAIN_ID) or any(
-        "العربية" in str(p) for p in env.tg.sent(MAIN_ID, "EditMessageText"))
-    env.tg.clear()
-    await env.feed(env.main, message(BUYER, "/help"))
-    assert "المساعدة" in env.tg.texts(MAIN_ID)
-    assert T("xx")["help"] == T("en")["help"]   # زبان ناشناخته → انگلیسی
+    assert "فارسی" in env.tg.texts(MAIN_ID) and not env.tg.buttons(MAIN_ID)

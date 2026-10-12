@@ -18,6 +18,9 @@ class Settings:
     admin_ids: frozenset[int]  # مدیران UploadFly (دستورهای اضطراری)؛ در .env با ADMIN_IDS
     support_username: str | None  # حساب تلگرام پشتیبانی (بدون @)؛ خالی = دکمه‌ی چت پنهان
     support_email: str | None     # ایمیل پشتیبانی؛ خالی = پنهان
+    # بازپرداخت خودکار قبل از دیدن محتوا. در بله هنوز با کیف پول واقعی تأیید نشده، پس پیش‌فرض خاموش است:
+    # خریدار بعد از پرداخت محتوا را مستقیم می‌گیرد و دکمه‌ی بازپرداخت نشان داده نمی‌شود
+    refunds: bool
 
 
 def load_settings() -> Settings:
@@ -37,6 +40,7 @@ def load_settings() -> Settings:
         admin_ids=frozenset(int(x) for x in os.getenv("ADMIN_IDS", "").replace(" ", "").split(",") if x.isdigit()),
         support_username=clean_username(os.getenv("SUPPORT_USERNAME", "")),
         support_email=clean_email(os.getenv("SUPPORT_EMAIL", "")),
+        refunds=os.getenv("REFUNDS", "").strip().lower() in ("1", "true", "on", "yes"),
     )
 
 

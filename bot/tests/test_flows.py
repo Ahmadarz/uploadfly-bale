@@ -61,7 +61,7 @@ async def test_start_upload_prompt(env):
     assert "فایلی که می‌خوای بفروشی رو همین‌جا بفرست" in env.tg.texts(SHOP_ID)
     env.tg.clear()
     await env.feed(env.shop, message(STRANGER, "/start upload"))
-    assert "فقط صاحب این ربات" in env.tg.texts(SHOP_ID)
+    assert "فقط صاحب این بازو" in env.tg.texts(SHOP_ID)
 
 
 async def test_stranger_cannot_upload_to_shop(env):
@@ -165,39 +165,63 @@ async def test_free_link_in_main_bot_is_protected(env):
     assert env.tg.sent(MAIN_ID, "SendPhoto")[0]["protect_content"] is True
 
 
-# --- ساخت فروشگاه با یک ضربه ---
+# --- ساخت فروشگاه در بله: توکن بازو، بعد توکن کیف پول ---
 
-async def test_managed_bot_creates_and_connects_shop(env):
-    new_bot = {"id": 3000003, "is_bot": True, "first_name": "Shop", "username": "buyer_shop_bot"}
-    await env.feed(env.main, {"managed_bot": {"user": {"id": BUYER, "is_bot": False, "first_name": "B"},
-                                              "bot_user": new_bot}})
-    assert env.tg.sent(MAIN_ID, "GetManagedBotToken")[0]["user_id"] == 3000003
+async def test_connect_asks_bot_token_then_wallet_token(env):
+    token = "3000003:" + "C" * 35
+    await env.feed(env.main, message(BUYER, "/connect"))
+    assert "botfather" in env.tg.texts(MAIN_ID) and env.tg.buttons(MAIN_ID)[0]["url"] == "https://ble.ir/botfather"
+    env.tg.clear()
+    await env.feed(env.main, message(BUYER, token))
+    assert env.tg.sent(MAIN_ID, "DeleteMessage")                      # توکن در چت نمی‌ماند
     async with SessionLocal() as s:
         seller = await s.scalar(select(Seller).where(Seller.bot_id == 3000003))
-    assert seller and seller.owner_id == BUYER and seller.is_active
-    assert 3000003 in env.manager.started
-    assert "ساخته و وصل شد" in env.tg.texts(MAIN_ID)
-    assert any("ساخته‌شده با @Uploadfly_Bot" in p.get("short_description", "")
-               for p in env.tg.sent(3000003, "SetMyShortDescription"))
-    # توضیح ربات به زبان هر خریدار
-    by_lang = {p.get("language_code"): p["description"] for p in env.tg.sent(3000003, "SetMyDescription")}
-    assert {"fa", "en", "ru", "ar", "zh"} <= set(by_lang) and "Добро пожаловать" in by_lang["ru"]
-
-
-async def test_managed_bot_refused_when_user_already_has_shop(env):
-    new_bot = {"id": 3000004, "is_bot": True, "first_name": "Shop2", "username": "owner_second_bot"}
-    await env.feed(env.main, {"managed_bot": {"user": {"id": OWNER, "is_bot": False, "first_name": "O"},
-                                              "bot_user": new_bot}})
+    assert seller and seller.owner_id == BUYER and seller.is_active and seller.wallet_enc is None
+    assert 3000003 in env.manager.started and "توکن کیف پول" in env.tg.texts(MAIN_ID)
+    # توکن کیف پول نامعتبر (شکل اشتباه) رد می‌شود و حالت می‌ماند
+    env.tg.clear()
+    await env.feed(env.main, message(BUYER, "توکن غلط با فاصله"))
+    assert "کار نکرد" in env.tg.texts(MAIN_ID)
+    env.tg.clear()
+    await env.feed(env.main, message(BUYER, "WALLET-TEST-1111111111111111"))
+    assert env.tg.sent(MAIN_ID, "DeleteMessage") and "ثبت شد" in env.tg.texts(MAIN_ID)
+    assert env.tg.sent(3000003, "CreateInvoiceLink")                  # توکن با یک فاکتور آزمایشی سنجیده شد
     async with SessionLocal() as s:
-        assert await s.scalar(select(Seller).where(Seller.bot_id == 3000004)) is None
-    assert "از قبل یک فروشگاه فعال داری" in env.tg.texts(MAIN_ID)
+        seller = await s.scalar(select(Seller).where(Seller.bot_id == 3000003))
+    from app.crypto import decrypt
+    assert decrypt(seller.wallet_enc) == "WALLET-TEST-1111111111111111"
+    assert "WALLET-TEST" not in env.tg.texts()                        # توکن در هیچ پیامی تکرار نمی‌شود
 
 
-async def test_bot_created_service_message_is_silent(env):
-    await env.feed(env.main, message(BUYER, managed_bot_created={"bot_user": {
-        "id": 3000005, "is_bot": True, "first_name": "S", "username": "s_bot"}}))
-    assert env.tg.sent(MAIN_ID, "SendMessage") == []     # نباید «این نوع پیام پشتیبانی نمی‌شه» بفرستد
+async def test_wallet_can_be_skipped_and_then_paid_price_is_blocked(env):
+    async with SessionLocal() as s:
+        seller = await s.scalar(select(Seller).where(Seller.bot_id == SHOP_ID))
+        seller.wallet_enc = None
+        await s.commit()
+    await env.feed(env.main, message(OWNER, "/wallet"))
+    await env.feed(env.main, message(OWNER, "/skip"))
+    assert "فقط محتوای رایگان" in env.tg.texts(MAIN_ID)
+    await env.feed(env.shop, photo_message(OWNER))
+    async with SessionLocal() as s:
+        c = await s.scalar(select(Content).order_by(Content.id.desc()))
+    env.tg.clear()
+    await env.feed(env.shop, callback(OWNER, f"price:{c.id}:10"))
+    assert "/wallet" in env.tg.texts(SHOP_ID)
+    async with SessionLocal() as s:
+        assert (await s.get(Content, c.id)).is_draft                  # منتشر نشد
+    await env.feed(env.shop, callback(OWNER, f"price:{c.id}:0"))      # رایگان بدون کیف پول هم می‌شود
+    async with SessionLocal() as s:
+        assert not (await s.get(Content, c.id)).is_draft
 
+
+async def test_wallet_command_needs_a_shop(env):
+    await env.feed(env.main, message(STRANGER, "/wallet"))
+    assert "/connect" in env.tg.texts(MAIN_ID)
+
+
+async def test_connect_refused_when_user_already_has_shop(env):
+    await env.feed(env.main, message(OWNER, "/connect"))
+    assert "الان وصله" in env.tg.texts(MAIN_ID)
 
 async def test_pasting_own_link_opens_it_instead_of_new_link(env):
     """کاربر لینک ربات را کپی و در چت فرستاد؛ نباید «لینکِ لینک» ساخته شود."""
@@ -310,14 +334,14 @@ async def test_paysupport_and_terms(env):
         await s.commit()
     await env.feed(env.shop, message(BUYER, "/paysupport"))
     text = env.tg.texts(SHOP_ID)
-    assert f"@bot{SHOP_ID}" in text and "@shop_owner" in text and "/terms" in text and "۲۴ ساعت" in text
+    assert f"@bot{SHOP_ID}" in text and "@shop_owner" in text and "/terms" in text and "کیف پول" in text
     env.tg.clear()
     await env.feed(env.main, message(BUYER, "/paysupport"))
-    assert "ربات همان فروشگاه" in env.tg.texts(MAIN_ID)
+    assert "بازوی همان فروشگاه" in env.tg.texts(MAIN_ID)
     for bot, bid in ((env.main, MAIN_ID), (env.shop, SHOP_ID)):
         env.tg.clear()
         await env.feed(bot, message(BUYER, "/terms"))
-        assert "telegram.org/tos/stars" in env.tg.texts(bid) and "کودکان" in env.tg.texts(bid)
+        assert "کیف پول بله" in env.tg.texts(bid) and "ممنوع" in env.tg.texts(bid)
 
 
 async def test_admin_funnel(env):
@@ -364,16 +388,27 @@ async def test_user_source_tracking(env):
     assert "start=src_x" not in env.tg.texts(MAIN_ID)
 
 
-async def test_stars_guide(env):
+async def test_payment_guide(env):
     c = await make_product(env, price=10)
     await env.feed(env.shop, message(BUYER, f"/start {c.code}"))
-    assert "/stars" in env.tg.texts(SHOP_ID)                                    # زیر پیشنهاد خرید
+    assert "کیف پول بله" in env.tg.texts(SHOP_ID)                               # زیر پیشنهاد خرید
     env.tg.clear()
-    msg = message(BUYER, "/stars")
-    msg["message"]["from"]["username"] = "buyer_one"
-    await env.feed(env.shop, msg)
-    text = env.tg.texts(SHOP_ID)
-    assert "@buyer_one" in text and "کد ورود" in text and "تومان" in text
+    await env.feed(env.shop, message(BUYER, "/stars"))
+    assert "کیف پول بله" in env.tg.texts(SHOP_ID) and "استارز" not in env.tg.texts(SHOP_ID)
+
+
+async def test_without_refunds_content_is_delivered_right_after_payment(env, monkeypatch):
+    """بله (پیش‌فرض): بازپرداخت خودکار خاموش است؛ خریدار بعد از پرداخت محتوا را مستقیم می‌گیرد."""
+    import dataclasses
+
+    from app import payments
+    monkeypatch.setattr(payments, "settings", dataclasses.replace(payments.settings, refunds=False))
+    c = await make_product(env, price=10)
     env.tg.clear()
-    await env.feed(env.shop, message(STRANGER, "/stars"))                       # بدون یوزرنیم
-    assert "یوزرنیم بساز" in env.tg.texts(SHOP_ID)
+    purchase = await pay(env, c, charge="no-refund-1")
+    assert env.tg.sent(SHOP_ID, "SendPhoto")                                   # محتوا تحویل شد
+    assert not any(b.get("callback_data", "").startswith("refund:") for b in env.tg.buttons(SHOP_ID))
+    async with SessionLocal() as s:
+        assert (await s.get(Purchase, purchase.id)).opened_at is not None
+    await env.feed(env.shop, callback(BUYER, f"refund:{purchase.id}"))         # دکمه‌ی قدیمی/دست‌کاری‌شده
+    assert not env.tg.sent(SHOP_ID, "RefundStarPayment")

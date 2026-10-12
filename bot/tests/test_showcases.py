@@ -179,7 +179,7 @@ async def test_subscription_reminder_end_and_renewal(env, client):  # noqa: F811
     # یک بار یادآوری (۳ روز قبل)، نه دو بار
     env.tg.clear()
     assert await showcases.subscription_tick(env.manager, "https://app.example") == 1
-    assert "تمدید می‌شود" in env.tg.texts(SHOP_ID) and env.tg.buttons(SHOP_ID)[0]["web_app"]
+    assert "تمدیدش کن" in env.tg.texts(SHOP_ID) and env.tg.buttons(SHOP_ID)[0]["web_app"]
     assert "&lt;ویژه&gt;" in env.tg.texts(SHOP_ID)                     # عنوان با < پیام را خراب نمی‌کند
     assert await showcases.subscription_tick(env.manager, "https://app.example") == 0
     # لغو تمدید از Mini App: با شناسه‌ی پرداخت اول؛ یادآوری با متن «تمدید نمی‌شود» دوباره می‌آید
@@ -234,10 +234,8 @@ async def test_member_stats_wallet_and_sales_counting(env, client, monkeypatch):
     assert detail["members"] == 1 and detail["revenue"] == 30 and detail["month_revenue"] == 30
     me = await (await client.get("/api/me", headers=owner())).json()
     assert me["shop"]["total_n"] == 1 and me["shop"]["total_sum"] == 30   # ورودی حساب شد، باز شدن نه
-    monkeypatch.setattr(MockSession, "star_balance", 100)
-    shop._balance_cache.clear()
     w = await (await client.get("/api/wallet", headers=owner())).json()
-    assert w["pending"] == 30 and w["sales"][0]["title"] == "🔑 S" and w["sales"][0]["kind"] == "showcase"
+    assert w["balance"] == 30 and w["pending"] == 0 and w["sales"][0]["title"] == "🔑 S" and w["sales"][0]["kind"] == "showcase"
     items = (await (await client.get("/api/products?tab=active", headers=owner())).json())["items"]
     assert items[0]["sales"] == 0                                             # باز شدن با عضویت فروش نیست
 

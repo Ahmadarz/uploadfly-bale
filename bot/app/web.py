@@ -30,7 +30,7 @@ from app.payments import open_purchase, refund_purchase
 from app.crypto import decrypt
 from app.db import Image as StoredImage  # نام Image مال Pillow است
 from app.db import Content, Purchase, Review, Seller, SessionLocal, Showcase, ShowcaseItem, User, is_id
-from app.products import (CATEGORIES, DESCRIPTION_MAX, MAX_PRICE, PRICE_PRESETS, TITLE_MAX, build_preview,
+from app.products import (CATEGORIES, DESCRIPTION_MAX, MAX_PRICE, MIN_PRICE, PRICE_PRESETS, TITLE_MAX, build_preview,
                           invoice_args, publish, rate, ratings_by_content, sales_by_content, shop_rating)
 from app.shop import WITHDRAW_MIN, buy_premium, shop_stats, wallet_view
 from app.texts import LANGUAGES, T, detect_language
@@ -298,7 +298,7 @@ async def api_product_update(request: web.Request) -> web.Response:
             c.allow_save = body["allow_save"] is True
         price = c.price_stars
         if "price" in body:
-            if not is_int(body["price"]) or not 0 <= body["price"] <= MAX_PRICE:
+            if not is_int(body["price"]) or not 0 <= body["price"] <= MAX_PRICE or 0 < body["price"] < MIN_PRICE:
                 return error("bad_price")
             # سقف اعتماد فقط وقتی قیمت بالا می‌رود بررسی می‌شود (محصولات قدیمی دست نمی‌خورند)
             if body["price"] > c.price_stars and body["price"] > await price_cap(session, seller.bot_id):
@@ -556,7 +556,7 @@ async def check_showcase_price(session: AsyncSession, seller: Seller, fields: di
         fields["price"] = 0
         return None
     price = fields.get("price", 0)
-    if not 1 <= price <= MAX_PRICE:
+    if not MIN_PRICE <= price <= MAX_PRICE:
         return "bad_price"
     if price > await price_cap(session, seller.bot_id):   # همان سقف تدریجی محصولات
         return "price_cap"
@@ -699,7 +699,7 @@ async def api_sc_page(request: web.Request) -> web.Response:
                          "archived": sc.archived,
                          "is_member": bool(m), "is_owner": is_owner,
                          "expires_at": m.expires_at.isoformat() if m and m.expires_at else None,
-                         "can_refund": bool(m and m.opened_at is None and m.amount and not m.expires_at),
+                         "can_refund": bool(settings.refunds and m and m.opened_at is None and m.amount and not m.expires_at),
                          "is_subscription": bool(m and m.sub_charge_id), "renewal_canceled": bool(m and m.canceled),
                          "is_trial": showcases.is_trial(m), "trial_days": sc.trial_days if sc.access == "monthly" else 0,
                          "trial_available": sc.access == "monthly" and bool(sc.trial_days) and not trial_used

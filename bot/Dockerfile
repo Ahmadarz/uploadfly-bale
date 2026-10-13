@@ -1,5 +1,6 @@
 # UploadFly: ربات + Mini App در یک کانتینر (سایت جداست: website/Dockerfile). ffmpeg برای پیش‌نمایش ویدیو و صدا لازم است.
-FROM python:3.12-slim AS base
+ARG BASE_IMAGE=python:3.12-slim
+FROM ${BASE_IMAGE} AS base
 ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 PIP_NO_CACHE_DIR=1 PIP_DISABLE_PIP_VERSION_CHECK=1 TZ=UTC
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ffmpeg \

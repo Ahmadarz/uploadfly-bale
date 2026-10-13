@@ -91,3 +91,29 @@ async def test_wallet_deep_link_starts_the_wallet_step(env):
     assert "کیف پول" in env.tg.texts(MAIN_ID) and env.tg.sent(MAIN_ID, "DeleteMessage")
     await env.feed(env.main, callback(OWNER, "shop:home"))   # حالت گفت‌وگو تمام شده و فروشگاه سر جایش است
     assert "فروشگاه من" in env.tg.texts(MAIN_ID)
+
+
+async def test_test_wallet_token_is_refused_on_a_real_server(env, monkeypatch):
+    """روی سرور واقعی (ALLOW_TEST_WALLET خاموش) توکن آزمایشی بله ثبت نمی‌شود و فروشگاهی که از قبل آن را دارد
+    «بدون کیف پول» حساب می‌شود."""
+    import dataclasses
+
+    import app.bale
+    import app.connect
+    from app.bale import _wallets
+    from app.config import settings
+    strict = dataclasses.replace(settings, allow_test_wallet=False)
+    monkeypatch.setattr(app.connect, "settings", strict)
+    monkeypatch.setattr("app.config.settings", strict)
+    await drop_wallet()
+    await env.feed(env.main, message(OWNER, "/wallet"))
+    env.tg.clear()
+    await env.feed(env.main, message(OWNER, "WALLET-TEST-1111111111111111"))
+    assert "توکن آزمایشی" in env.tg.texts(MAIN_ID)
+    async with SessionLocal() as s:
+        assert (await s.scalar(select(Seller).where(Seller.bot_id == SHOP_ID))).wallet_enc is None
+    set_wallet(SHOP_ID, "WALLET-TEST-1111111111111111")          # مثل روشن شدن بازو با توکن آزمایشیِ ذخیره‌شده
+    assert SHOP_ID not in _wallets
+    set_wallet(SHOP_ID, "WALLET-REAL-1234567890123456")
+    assert _wallets[SHOP_ID] == "WALLET-REAL-1234567890123456"
+    set_wallet(SHOP_ID, None)

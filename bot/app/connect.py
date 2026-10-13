@@ -17,7 +17,8 @@ from aiogram.utils.token import TokenValidationError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.bale import NoWallet, bot_link, set_wallet
+from app.bale import NoWallet, bot_link, is_test_wallet, set_wallet
+from app.config import settings
 from app.bots import BotManager, make_bot
 from app.crypto import decrypt, encrypt
 from app.db import Seller, User
@@ -232,6 +233,9 @@ async def wallet_token(message: Message, session: AsyncSession, db_user: User, s
     if seller is None:
         await state.clear()
         await message.answer(t["wallet_no_shop"])
+        return
+    if is_test_wallet(token) and not settings.allow_test_wallet:
+        await message.answer(t["wallet_test_refused"].format(bot=seller.bot_username))
         return
     seller_bot = manager.get(seller.bot_id)
     old = decrypt(seller.wallet_enc) if seller.wallet_enc else None

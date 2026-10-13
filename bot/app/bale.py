@@ -39,8 +39,15 @@ class NoWallet(Exception):
     """بازویی که هنوز توکن کیف پول ندارد نمی‌تواند فاکتور بسازد."""
 
 
+def is_test_wallet(token: str | None) -> bool:
+    return bool(token) and token.strip().upper().startswith("WALLET-TEST")
+
+
 def set_wallet(bot_id: int, token: str | None) -> None:
-    if token:
+    """توکن کیف پول یک بازو را در حافظه می‌گذارد. توکن آزمایشی بله فقط وقتی ALLOW_TEST_WALLET روشن است پذیرفته
+    می‌شود؛ وگرنه آن بازو «بدون کیف پول» حساب می‌شود (فاکتور نمی‌سازد و صاحبش خبردار می‌شود)."""
+    from app.config import settings
+    if token and (settings.allow_test_wallet or not is_test_wallet(token)):
         _wallets[bot_id] = token
     else:
         _wallets.pop(bot_id, None)

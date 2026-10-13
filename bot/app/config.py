@@ -21,6 +21,9 @@ class Settings:
     # بازپرداخت خودکار قبل از دیدن محتوا. در بله هنوز با کیف پول واقعی تأیید نشده، پس پیش‌فرض خاموش است:
     # خریدار بعد از پرداخت محتوا را مستقیم می‌گیرد و دکمه‌ی بازپرداخت نشان داده نمی‌شود
     refunds: bool
+    # توکن آزمایشی عمومی بله (WALLET-TEST-…) مثل واقعی رفتار می‌کند ولی پولی جابه‌جا نمی‌شود: روی سرور واقعی
+    # فروشنده‌ای که آن را ثبت کند محصولش را عملاً مجانی می‌دهد. فقط برای آزمایش روی کامپیوتر خود مالک روشن می‌شود
+    allow_test_wallet: bool
 
 
 def load_settings() -> Settings:
@@ -41,6 +44,7 @@ def load_settings() -> Settings:
         support_username=clean_username(os.getenv("SUPPORT_USERNAME", "")),
         support_email=clean_email(os.getenv("SUPPORT_EMAIL", "")),
         refunds=os.getenv("REFUNDS", "").strip().lower() in ("1", "true", "on", "yes"),
+        allow_test_wallet=os.getenv("ALLOW_TEST_WALLET", "").strip().lower() in ("1", "true", "on", "yes"),
     )
 
 

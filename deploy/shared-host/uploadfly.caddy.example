@@ -1,0 +1,38 @@
+# UploadFly روی سروری که Caddy خودش را دارد (docker-compose.shared.yml).
+# این فایل را با دامنه‌ی واقعی در /etc/caddy/uploadfly-bale.caddy بگذار و فقط همین یک خط را به آخر Caddyfile اصلی
+# سرور اضافه کن:        import /etc/caddy/uploadfly-bale.caddy
+# بعد:  caddy validate --config /etc/caddy/Caddyfile   و اگر درست بود   systemctl reload caddy
+# (اگر فایل اصلی خطا داشته باشد reload انجام نمی‌شود و تنظیم قبلی سر جایش می‌ماند.)
+
+# بازو و Mini App
+app.EXAMPLE.IR {
+	encode zstd gzip
+	reverse_proxy 127.0.0.1:18700
+}
+
+# سایت معرفی (فایل‌های ثابت؛ ساخته‌شده با: docker compose -f docker-compose.shared.yml --profile site run --rm site)
+EXAMPLE.IR {
+	root * /srv/uploadfly-bale/site-dist
+	encode zstd gzip
+	try_files {path} {path}/index.html
+	file_server
+	header {
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		X-Frame-Options DENY
+		Content-Security-Policy "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; font-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'"
+		Strict-Transport-Security "max-age=31536000"
+	}
+	@static path /assets/*
+	header @static Cache-Control "public, max-age=2592000"
+	handle_errors {
+		@notfound expression {err.status_code} == 404
+		rewrite @notfound /404.html
+		file_server
+	}
+}
+
+# www → بدون www
+www.EXAMPLE.IR {
+	redir https://EXAMPLE.IR{uri} permanent
+}

@@ -20,6 +20,7 @@ os.environ["ENCRYPTION_KEY"] = Fernet.generate_key().decode()
 os.environ["WEBAPP_URL"] = "https://app.example"
 os.environ["PRICE_UNIT"] = "1"  # قیمت‌های تست کوچک می‌مانند (در اجرای واقعی واحد ۱۰۰۰ تومان است)
 os.environ["REFUNDS"] = "1"  # مسیر بازپرداخت در تست‌ها روشن است؛ حالت خاموش تست جدا دارد
+os.environ["ALLOW_TEST_WALLET"] = "1"  # تست‌ها با توکن آزمایشی بله کار می‌کنند؛ حالت خاموش (سرور واقعی) تست جدا دارد
 os.environ["ADMIN_IDS"] = "501"  # OWNER در تست‌ها مدیر است
 
 import pytest  # noqa: E402

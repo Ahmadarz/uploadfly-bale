@@ -1,0 +1,89 @@
+# UploadFly روی سروری که برنامه‌های دیگری هم رویش هست و وب‌سرور خودش (Caddy یا nginx) پورت‌های ۸۰ و ۴۴۳ را دارد.
+#
+# جدایی کامل از بقیه‌ی برنامه‌های سرور:
+#   - نام پروژه، شبکه، دیتابیس و volumeهای خودش (همه با پیشوند uploadfly-bale)
+#   - هیچ پورتی به بیرون باز نمی‌شود؛ بازو و Mini App فقط روی 127.0.0.1:${APP_PORT} گوش می‌دهند
+#   - وب‌سرور خود سرور فقط دو کار می‌کند: app.DOMAIN را به همین پورت می‌فرستد و فایل‌های ثابت سایت را از
+#     پوشه‌ی ./site-dist نشان می‌دهد (نمونه: deploy/shared-host/uploadfly.caddy.example)
+#
+# اجرا (در پوشه‌ی پروژه روی سرور، کنار فایل .env):
+#   docker compose -f docker-compose.shared.yml up -d --build
+#   docker compose -f docker-compose.shared.yml --profile site run --rm site      # ساخت سایت، بعد از تعیین دامنه
+name: uploadfly-bale
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  db:
+    image: ${REGISTRY:-public.ecr.aws/docker/library/}postgres:16-alpine
+    restart: unless-stopped
+    logging: *logging
+    environment:
+      POSTGRES_USER: uploadfly
+      POSTGRES_DB: uploadfly
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD را در .env بگذار}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U uploadfly -d uploadfly"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  bot:
+    build:
+      context: ./bot
+      args:
+        BASE_IMAGE: ${REGISTRY:-public.ecr.aws/docker/library/}python:3.12-slim
+    restart: unless-stopped
+    logging: *logging
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://uploadfly:${POSTGRES_PASSWORD}@db:5432/uploadfly
+      WEBAPP_URL: ${WEBAPP_URL:-}      # تا وقتی دامنه و HTTPS آماده نشده خالی می‌ماند (بازو کار می‌کند، Mini App نه)
+      WEBAPP_HOST: 0.0.0.0
+    ports:
+      - "127.0.0.1:${APP_PORT:-18700}:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - cache:/app/cache
+
+  # سایت معرفی: یک بار اجرا می‌شود و فایل‌های ثابت را در ./site-dist می‌نویسد
+  site:
+    profiles: ["site"]
+    build:
+      context: ./website
+      args:
+        BASE_IMAGE: ${REGISTRY:-public.ecr.aws/docker/library/}python:3.12-slim
+    user: root
+    restart: "no"
+    env_file: .env
+    environment:
+      SITE_URL: https://${SITE_DOMAIN:-uploadfly.example}
+    volumes:
+      - ./site-dist:/srv/site
+
+  # پشتیبان روزانه‌ی دیتابیس در ./backups (۱۴ روز آخر)
+  backup:
+    image: ${REGISTRY:-public.ecr.aws/docker/library/}postgres:16-alpine
+    restart: unless-stopped
+    logging: *logging
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - ./backups:/backups
+      - ./deploy/backup.sh:/backup.sh:ro
+    entrypoint: ["sh", "/backup.sh"]
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+  cache:

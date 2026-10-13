@@ -971,3 +971,8 @@ p { margin: 0; }
 .hero-card .ring { display: none; }
 .hero-stats.two > div:nth-child(2) { display: none; }
 .hero-stats.two { grid-template-columns: 1fr; }
+/* خانه‌های آمار با مبلغ تومانی: عدد در یک خط می‌ماند و واحد («تومان» یا «میلیون تومان»، app.js: shortSum) ریز زیرش می‌آید */
+.hero-stats b { flex-direction: column; align-items: flex-start; gap: 0; font-size: clamp(0.8125rem, 4vw, var(--text-lg)); line-height: 1.3; }
+.hero-stats b > span:not(.cur) { font-size: inherit; color: inherit; white-space: nowrap; overflow-wrap: normal; }
+.hero-stats b .cur { font-size: 0.625rem; margin: 0; white-space: nowrap; overflow-wrap: normal; opacity: .75; }
+.balance .cur { font-size: 0.42em; }

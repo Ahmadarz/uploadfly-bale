@@ -20,6 +20,13 @@ let me = null;
 // t("premium_confirm", { s: 1000, n: 3 }) → با نام؛ امن وقتی ترتیب جای خالی‌ها در زبان‌ها فرق دارد
 const num = (n) => (typeof n === "number" ? n.toLocaleString("en-US") : n);
 const toman = (n) => `${num(Number(n) || 0)} تومان`;
+// خانه‌های کوچک آمار: مبلغ میلیونی کوتاه می‌شود («12.5» و زیرش «میلیون تومان») تا در خانه جا شود
+function shortSum(id, n) {
+  n = Number(n) || 0;
+  const [div, unit] = n >= 1e9 ? [1e9, "unit_billion"] : n >= 1e6 ? [1e6, "unit_million"] : [1, "unit_toman"];
+  $(id).textContent = div === 1 ? num(n) : String(Math.floor(n / (div / 100)) / 100);
+  $(id).nextElementSibling.textContent = t(unit);
+}
 const t = (key, ...args) => {
   let v = dicts[lang]?.[key] ?? dicts.en?.[key] ?? key;
   if (typeof v === "string" && args.length === 1 && args[0] && typeof args[0] === "object") {
@@ -212,9 +219,9 @@ function renderHome() {
   $("suspended").classList.toggle("hidden", !shop.suspended);
   if (!renderHome.counted) { countUp($("st-balance"), shop.balance); renderHome.counted = true; }
   else $("st-balance").textContent = num(shop.balance) ?? "?";
-  $("st-today-sum").textContent = num(shop.today_sum);
+  shortSum("st-today-sum", shop.today_sum);
   $("st-today-n").textContent = t("sales", shop.today_n);
-  $("st-total-sum").textContent = num(shop.total_sum);
+  shortSum("st-total-sum", shop.total_sum);
   $("st-total-n").textContent = t("sales", shop.total_n);
   $("st-links").textContent = shop.links;
   requestAnimationFrame(() => renderRing(shop.balance, me.withdraw_min));

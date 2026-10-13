@@ -6,6 +6,9 @@
 > موقع راه‌اندازی، Claude قدم‌به‌قدم کنارت است. این فایل برای مرور و مراجعه‌ی بعدی است.
 > بخش‌هایی که با «⚠️ بررسی‌نشده» علامت خورده‌اند هنوز روی سرور واقعی امتحان نشده‌اند.
 
+> **سروری که برنامه‌های دیگری هم رویش هست و وب‌سرور خودش را دارد** (مثل سرور فروشگاه‌ساز): به‌جای این راهنما،
+> بخش آخر همین فایل («نصب روی سرور مشترک») را ببین.
+
 ## ۰. چه چیزهایی باید بخری
 | چیز | پیشنهاد | چرا |
 |---|---|---|
@@ -112,3 +115,28 @@ docker compose logs -f bot
 gunzip -c backups/FILE.sql.gz | docker compose exec -T db psql -U uploadfly -d uploadfly
 ```
 (روی دیتابیس خالی؛ قبلش با Claude هماهنگ کن.)
+
+## نصب روی سرور مشترک (سروری که Caddy خودش و برنامه‌های دیگری دارد)
+روی چنین سروری پورت‌های ۸۰ و ۴۴۳ دست وب‌سرور خود سرور است، پس UploadFly وب‌سرور جدا بالا نمی‌آورد و کاملاً جدا می‌ماند:
+پوشه‌ی خودش (`/srv/uploadfly-bale`)، پروژه‌ی Docker خودش (`uploadfly-bale`)، دیتابیس خودش، و هیچ پورتی رو به بیرون.
+
+1. کد را در `/srv/uploadfly-bale` بگذار و کنار آن `.env` بساز (همان مقدارهای بخش ۴؛ به‌علاوه‌ی `APP_PORT=18700` و
+   `WEBAPP_URL=https://app.دامنه` وقتی دامنه آماده شد).
+2. روشن کردن:
+   ```
+   cd /srv/uploadfly-bale
+   sudo docker compose -f docker-compose.shared.yml up -d --build
+   sudo docker compose -f docker-compose.shared.yml logs -f bot
+   ```
+3. ساخت سایت معرفی (بعد از گذاشتن `SITE_DOMAIN` در `.env`):
+   ```
+   sudo docker compose -f docker-compose.shared.yml --profile site run --rm site
+   ```
+4. وصل کردن دامنه به وب‌سرور خود سرور: فایل `deploy/shared-host/uploadfly.caddy.example` را با دامنه‌ی واقعی در
+   `/etc/caddy/uploadfly-bale.caddy` بگذار و **فقط یک خط** به آخر `Caddyfile` اصلی اضافه کن:
+   `import /etc/caddy/uploadfly-bale.caddy`
+   قبلش از Caddyfile پشتیبان بگیر، بعد `caddy validate --config /etc/caddy/Caddyfile` و اگر درست بود `systemctl reload caddy`.
+5. به‌روزرسانی بعد از تغییر کد: کد تازه را در همان پوشه بگذار و دستور قدم ۲ را دوباره بزن.
+
+چیزی که با بقیه‌ی برنامه‌های سرور مشترک است فقط همان یک خط `import` در Caddyfile است؛ اگر روزی Caddyfile از نو
+نوشته شد و آن خط افتاد، فقط UploadFly از دسترس خارج می‌شود (بقیه‌ی سایت‌ها نه) و با برگرداندن همان خط درست می‌شود.

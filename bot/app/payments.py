@@ -5,12 +5,13 @@
 فروشنده‌ای که گزارش زیاد بگیرد خودکار تعلیق می‌شود."""
 import html
 import logging
+import time
 from datetime import datetime, timedelta, timezone
 
 from aiogram import Bot, F, Router
-from aiogram.exceptions import TelegramAPIError, TelegramBadRequest
+from aiogram.exceptions import TelegramAPIError, TelegramBadRequest, TelegramNetworkError
 from aiogram.filters import Command
-from aiogram.types import (CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message, WebAppInfo,
+from aiogram.types import (CallbackQuery, ErrorEvent, InlineKeyboardButton, InlineKeyboardMarkup, Message, WebAppInfo,
                            PreCheckoutQuery)
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -20,7 +21,7 @@ from app.config import settings
 from app import creator, preview, showcases
 from app.content import deliver
 from app.products import invoice_args, rate
-from app.db import Content, Purchase, Seller, User, cb_id, is_id
+from app.db import Content, Purchase, Seller, SessionLocal, User, cb_id, is_id
 from app.middlewares import seller_bot
 from app.texts import T, format_specs
 from app.trust import is_blacklisted
@@ -53,6 +54,35 @@ async def report_rules(session: AsyncSession, purchase: Purchase) -> tuple[timed
 
 def utcnow() -> datetime:
     return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
+_owner_alerted: dict[int, float] = {}   # شناسه‌ی بازو ← آخرین باری که به صاحبش خبر دادیم
+OWNER_ALERT_EVERY = 6 * 3600
+
+
+async def pay_unavailable(event: ErrorEvent, bot: Bot, main_username: str = "") -> bool:
+    """فاکتور ساخته نشد (کیف پول ثبت نشده یا بله آن را نپذیرفت). خریدار به‌جای سکوت پیام روشن می‌گیرد و صاحب
+    فروشگاه خبردار می‌شود تا کیف پولش را درست کند (حداکثر هر ۶ ساعت یک بار). در main.build_dispatcher ثبت می‌شود."""
+    exc = event.exception
+    actor = getattr(event.update.event, "from_user", None)
+    log.warning("Invoice failed in bot %s: %s", bot.id, type(exc).__name__)
+    async with SessionLocal() as session:
+        seller = await session.scalar(select(Seller).where(Seller.bot_id == bot.id))
+    t = T("fa")
+    is_owner = seller is not None and actor is not None and actor.id == seller.owner_id
+    try:
+        if actor is not None:
+            await bot.send_message(actor.id, t["wallet_need"].format(main=main_username) if is_owner
+                                   else t["pay_unavailable"])
+        lasting = not isinstance(exc, TelegramNetworkError)   # قطعی شبکه خودش برطرف می‌شود
+        if seller is not None and lasting and not is_owner \
+                and time.time() - _owner_alerted.get(bot.id, 0) > OWNER_ALERT_EVERY:
+            _owner_alerted[bot.id] = time.time()
+            await bot.send_message(seller.owner_id, t["pay_broken_owner"].format(bot=seller.bot_username,
+                                                                                 main=main_username))
+    except TelegramAPIError:
+        pass
+    return True
 
 
 def naive_utc(dt: datetime) -> datetime:
@@ -386,6 +416,11 @@ async def open_cb(callback: CallbackQuery, session: AsyncSession, db_user: User,
     await callback.answer()
     content = await session.get(Content, purchase.content_id)
     await open_purchase(bot, callback.message.chat.id, purchase, content, session, db_user.language)
+
+
+def report_markup(purchase_id: int, lang: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(
+        text=T(lang)["btn_report"], callback_data=f"report:{purchase_id}")]])
 
 
 def rating_markup(purchase_id: int, lang: str, chosen: int = 0) -> InlineKeyboardMarkup:

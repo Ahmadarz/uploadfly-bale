@@ -15,6 +15,7 @@ import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+from aiogram.exceptions import TelegramAPIError
 from aiogram.utils.web_app import WebAppInitData, safe_parse_webapp_init_data
 from aiohttp import web
 from PIL import Image, ImageFilter
@@ -22,6 +23,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import looks, preview, showcases
+from app.bale import NoWallet, bot_link, invoice_failed
 from app.bots import BotManager, set_user_menu
 from app.config import settings
 from app.connect import active_seller, create_bot_link
@@ -29,7 +31,7 @@ from app.content import deliver
 from app.payments import open_purchase, refund_purchase
 from app.crypto import decrypt
 from app.db import Image as StoredImage  # نام Image مال Pillow است
-from app.db import Content, Purchase, Review, Seller, SessionLocal, Showcase, ShowcaseItem, User, is_id
+from app.db import Content, Order, Purchase, Review, Seller, SessionLocal, Showcase, ShowcaseItem, User, is_id
 from app.products import (CATEGORIES, DESCRIPTION_MAX, MAX_PRICE, MIN_PRICE, PRICE_PRESETS, TITLE_MAX, build_preview,
                           invoice_args, publish, rate, ratings_by_content, sales_by_content, shop_rating)
 from app.shop import WITHDRAW_MIN, buy_premium, shop_stats, wallet_view
@@ -202,6 +204,9 @@ async def api_me(request: web.Request) -> web.Response:
         shop = None
         if seller:
             shop = {"bot": seller.bot_username, "bot_id": seller.bot_id, "suspended": seller.is_suspended,
+                    # بدون توکن کیف پول فقط محتوای رایگان می‌شود گذاشت؛ Mini App راه ثبتش را نشان می‌دهد
+                    "wallet": bool(seller.wallet_enc),
+                    "wallet_link": bot_link(request.app["main_username"], "wallet"),
                     "price_cap": await price_cap(session, seller.bot_id),
                     "rating": await shop_rating(session, seller.bot_id),
                     "top": await top_products(session, seller),
@@ -216,6 +221,14 @@ async def api_me(request: web.Request) -> web.Response:
                 Showcase.bot_id == seller.bot_id, Showcase.is_active.is_(True))) or 0
             shop["has_look"] = bool(seller.logo or seller.cover or seller.style or seller.links
                                     or (seller.theme and seller.theme != "soft"))
+            # کالای فیزیکی: کارت «سفارش‌ها» در خانه وقتی فروشگاه کالا یا سفارشی دارد
+            shop["physical"] = await session.scalar(select(func.count(Content.id)).where(
+                Content.bot_id == seller.bot_id, Content.is_physical.is_(True), Content.is_draft.is_(False))) or 0
+            shop["orders_waiting"] = await session.scalar(select(func.count(Order.id)).where(
+                Order.bot_id == seller.bot_id, Order.status == "paid")) or 0
+            shop["orders_total"] = await session.scalar(select(func.count(Order.id)).where(
+                Order.bot_id == seller.bot_id, Order.status != "pending")) or 0
+            shop["shipping_fee"] = seller.shipping_fee or 0
     return web.json_response({
         "name": user.first_name or "", "lang": user.language, "main_bot": request.app["main_username"],
         "shop": shop, "presets": PRICE_PRESETS, "max_price": MAX_PRICE, "categories": CATEGORIES,
@@ -313,6 +326,8 @@ async def api_product_update(request: web.Request) -> web.Response:
             if body["price"] > c.price_stars and body["price"] > await price_cap(session, seller.bot_id):
                 return error("price_cap")
             price = body["price"]
+        if price > 0 and not seller.wallet_enc and (price != c.price_stars or body.get("publish")):
+            return error("no_wallet", 409)   # فروش به تومان بدون کیف پول ممکن نیست (فاکتور ساخته نمی‌شود)
         if c.is_physical and price == 0 and (body.get("publish") or not c.is_draft):
             return error("bad_price")   # کالای فیزیکی رایگان معنی ندارد
         if "title" in body:
@@ -569,6 +584,8 @@ async def check_showcase_price(session: AsyncSession, seller: Seller, fields: di
     price = fields.get("price", 0)
     if not MIN_PRICE <= price <= MAX_PRICE:
         return "bad_price"
+    if not seller.wallet_enc:
+        return "no_wallet"
     if price > await price_cap(session, seller.bot_id):   # همان سقف تدریجی محصولات
         return "price_cap"
     return None
@@ -1063,6 +1080,9 @@ async def api_purchases(request: web.Request) -> web.Response:
                        Showcase.is_active.is_(True))
                 .order_by(showcases.Membership.id))).all():
             memberships[sc.id] = (m, sc, s)
+        # سفارش کالای فیزیکیِ هر خرید (وضعیت ارسال و کد رهگیری)
+        order_of = {o.purchase_id: o for o in (await session.scalars(select(Order).where(
+            Order.purchase_id.in_([p.id for p, _, _ in rows])))).all()} if rows else {}
     now = showcases.utcnow()
     return web.json_response({
         "memberships": [{
@@ -1076,6 +1096,8 @@ async def api_purchases(request: web.Request) -> web.Response:
             "shop": s.bot_username, "shop_bot_id": s.bot_id, "opened": p.opened_at is not None,
             "date": p.created_at.date().isoformat() if p.created_at else None,
             "link": f"https://ble.ir/{s.bot_username}?start={c.code}",
+            "order": ({"id": order_of[p.id].id, "status": order_of[p.id].status, "tracking": order_of[p.id].tracking}
+                      if p.id in order_of else None),
         } for p, c, s in rows]})
 
 
@@ -1099,6 +1121,7 @@ def creator_shop(seller: Seller) -> dict:
     from app.creator import TIP_MAX, TIP_PRESETS
     return {"bio": seller.bio, "category": seller.category, "dm_mode": seller.dm_mode,
             "tips": list(TIP_PRESETS), "tip_max": TIP_MAX,
+            "pay": bool(seller.wallet_enc),   # بدون کیف پول: دکمه‌ی حمایت مالی نشان داده نمی‌شود
             "chat": f"https://ble.ir/{seller.bot_username}"}
 
 
@@ -1352,6 +1375,18 @@ CSP = ("default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline';
 
 
 @web.middleware
+async def invoice_errors(request: web.Request, handler):
+    """فاکتوری که ساخته نشد، به‌جای خطای ۵۰۰ یک کد روشن برمی‌گرداند (Mini App متنش را نشان می‌دهد)."""
+    try:
+        return await handler(request)
+    except (NoWallet, TelegramAPIError) as e:
+        if not invoice_failed(e):
+            raise
+        log.warning("Invoice failed on %s: %s", request.path, type(e).__name__)
+        return error("pay_unavailable", 409)
+
+
+@web.middleware
 async def security_headers(request: web.Request, handler):
     resp = await handler(request)
     resp.headers.setdefault("X-Content-Type-Options", "nosniff")
@@ -1416,7 +1451,7 @@ def read_asset(path: Path) -> bytes:
 
 async def index(request: web.Request) -> web.Response:
     html = read_asset(WEBAPP_DIR / "index.html").decode()
-    for name in ("tokens.css", "app.css", "bale-sdk.js", "bale.js", "app.js", "creator.js", "logo.jpg"):  # نسخه در آدرس: فایل تغییرکرده حتماً دوباره دانلود می‌شود
+    for name in ("tokens.css", "app.css", "bale-sdk.js", "bale.js", "app.js", "creator.js", "orders.js", "logo.png"):  # نسخه در آدرس: فایل تغییرکرده حتماً دوباره دانلود می‌شود
         html = html.replace(f"/static/{name}", f"/static/{name}?v={asset_version(name)}")
     resp = web.Response(text=html, content_type="text/html", headers={"Cache-Control": "no-cache", "Content-Security-Policy": CSP})
     resp.enable_compression()
@@ -1441,7 +1476,7 @@ async def static_file(request: web.Request) -> web.Response:
 
 
 def make_app(manager: BotManager, main_username: str) -> web.Application:
-    app = web.Application(middlewares=[security_headers, auth_middleware], client_max_size=64 * 1024)
+    app = web.Application(middlewares=[security_headers, auth_middleware, invoice_errors], client_max_size=64 * 1024)
     app["manager"] = manager
     app["main_username"] = main_username
     app.router.add_get("/", index)
@@ -1483,8 +1518,9 @@ def make_app(manager: BotManager, main_username: str) -> web.Application:
     app.router.add_post("/api/store/{bot}/open/{id}", api_store_open)
     app.router.add_post("/api/store/{bot}/refund/{id}", api_store_refund)
     app.router.add_get("/static/{path:.+}", static_file)
-    from app import web_creator   # صفحه‌ی سازنده: تنظیمات، فن‌ها، کشف، دونیت، لایک، آزمایشی
+    from app import web_creator, web_orders   # صفحه‌ی سازنده (تنظیمات، فن‌ها، دونیت...) و سفارش‌های کالا
     web_creator.add_routes(app)
+    web_orders.add_routes(app)
     return app
 
 

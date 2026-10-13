@@ -298,3 +298,130 @@ async def test_owner_tapping_order_on_own_product_gets_a_clear_hint(env):
     assert "محصول خودته" in env.tg.texts(SHOP_ID)
     async with SessionLocal() as s:
         assert await s.scalar(select(Order)) is None
+
+
+# --- سفارش‌ها در Mini App و لغو سفارش ---
+
+async def test_seller_manages_orders_in_the_mini_app(env, client):  # noqa: F811
+    c = await make_physical(env)
+    first = await fill_form(env, c)
+    await pay_order(env, first, charge="ord-a")
+    second = await fill_form(env, c, buyer=STRANGER)
+    await pay_order(env, second, buyer=STRANGER, charge="ord-b")
+    owner = as_user(OWNER, via_shop=False)
+
+    me = await (await client.get("/api/me", headers=owner)).json()
+    assert me["shop"]["orders_waiting"] == 2 and me["shop"]["physical"] == 1
+    data = await (await client.get("/api/orders", headers=owner)).json()
+    assert [o["id"] for o in data["items"]] == [first.id, second.id] and data["counts"]["waiting"] == 2
+    row = data["items"][0]
+    assert row["name"] == "علی رضایی" and row["phone"] == "09123456789" and row["postal"] == "1234567890"
+
+    # نشانی خریدار فقط برای صاحب فروشگاه است: نه خریدار، نه مهمانِ بازوی فروشگاه
+    assert (await client.get("/api/orders", headers=as_user(BUYER))).status == 403
+    assert (await client.get("/api/orders", headers=as_user(BUYER, via_shop=False))).status == 403
+    assert (await client.post(f"/api/orders/{first.id}/ship", headers=as_user(BUYER, via_shop=False), json={})).status == 403
+
+    env.tg.clear()
+    assert (await client.post(f"/api/orders/{first.id}/ship", headers=owner, json={"tracking": "x"})).status == 400
+    r = await client.post(f"/api/orders/{first.id}/ship", headers=owner, json={"tracking": "۱۲۳۴ ۵۶۷۸"})
+    assert r.status == 200 and (await r.json())["status"] == "shipped" and (await r.json())["tracking"] == "1234 5678"
+    to_buyer = [p["text"] for p in env.tg.sent(SHOP_ID, "SendMessage") if p["chat_id"] == BUYER]
+    assert len(to_buyer) == 1 and "ارسال شد" in to_buyer[0] and "1234 5678" in to_buyer[0]
+    assert (await client.post(f"/api/orders/{first.id}/ship", headers=owner, json={})).status == 409   # دو بار نه
+
+    shipped = await (await client.get("/api/orders?tab=shipped", headers=owner)).json()
+    assert [o["id"] for o in shipped["items"]] == [first.id] and shipped["counts"] == {"waiting": 1, "shipped": 1, "canceled": 0}
+    # خریدار در «خریدهای من» وضعیت و کد رهگیری را می‌بیند
+    mine = await (await client.get("/api/purchases", headers=as_user(BUYER, via_shop=False))).json()
+    assert mine["items"][0]["order"] == {"id": first.id, "status": "shipped", "tracking": "1234 5678"}
+
+
+async def test_seller_cancels_an_order_and_the_buyer_can_still_report(env, client):  # noqa: F811
+    c = await make_physical(env)
+    async with SessionLocal() as s:
+        (await s.get(Content, c.id)).stock = 1
+        await s.commit()
+    order = await fill_form(env, c)
+    await pay_order(env, order)
+    async with SessionLocal() as s:
+        assert (await s.get(Content, c.id)).stock == 0
+    env.tg.clear()
+    r = await client.post(f"/api/orders/{order.id}/cancel", headers=as_user(OWNER, via_shop=False))
+    assert r.status == 200 and (await r.json())["status"] == "canceled"
+    async with SessionLocal() as s:
+        assert (await s.get(Content, c.id)).stock == 1                      # موجودی برگشت
+        purchase = await s.scalar(select(Purchase).where(Purchase.buyer_id == BUYER))
+        assert purchase.refunded is False                                    # پول را ما برنگردانده‌ایم
+    told = [p for p in env.tg.sent(SHOP_ID, "SendMessage") if p["chat_id"] == BUYER]
+    assert len(told) == 1 and "لغو شد" in told[0]["text"]
+    assert told[0]["reply_markup"]["inline_keyboard"][0][0]["callback_data"] == f"report:{purchase.id}"
+    await env.feed(env.shop, callback(BUYER, f"report:{purchase.id}"))       # اگر پول برنگشت: گزارش باز است
+    assert any(str(b.get("callback_data", "")).startswith(f"reportr:{purchase.id}:") for b in env.tg.buttons(SHOP_ID))
+    assert (await client.post(f"/api/orders/{order.id}/ship", headers=as_user(OWNER, via_shop=False), json={})).status == 409
+
+
+async def test_cancel_in_chat_asks_first(env):
+    c = await make_physical(env)
+    order = await fill_form(env, c)
+    await pay_order(env, order)
+    assert any(b.get("callback_data") == f"ocancel:{order.id}" for b in env.tg.buttons(SHOP_ID))
+    env.tg.clear()
+    await env.feed(env.shop, callback(BUYER, f"ocancelyes:{order.id}"))      # خریدار نمی‌تواند لغو کند
+    await env.feed(env.shop, callback(OWNER, f"ocancel:{order.id}"))
+    async with SessionLocal() as s:
+        assert (await s.get(Order, order.id)).status == "paid"               # هنوز فقط پرسیده شده
+    assert "اول خودت پول رو به خریدار برگردون" in env.tg.texts(SHOP_ID)
+    await env.feed(env.shop, callback(OWNER, f"ocancelyes:{order.id}"))
+    async with SessionLocal() as s:
+        assert (await s.get(Order, order.id)).status == "canceled"
+    env.tg.clear()
+    await env.feed(env.shop, message(BUYER, "/orders"))
+    assert "لغو شد" in env.tg.texts(SHOP_ID)
+
+
+async def test_shipping_fee_and_draft_physical_switch_from_the_mini_app(env, client):  # noqa: F811
+    owner = as_user(OWNER, via_shop=False)
+    r = await client.patch("/api/creator", headers=owner, json={"shipping_fee": 45})
+    assert r.status == 200 and (await r.json())["shipping_fee"] == 45
+    assert (await client.patch("/api/creator", headers=owner, json={"shipping_fee": -1})).status == 400
+    assert (await client.patch("/api/creator", headers=owner, json={"shipping_fee": 2_000_001})).status == 400
+    await env.feed(env.shop, photo_message(OWNER))
+    async with SessionLocal() as s:
+        cid = (await s.scalar(select(Content).order_by(Content.id.desc()))).id
+    r = await client.patch(f"/api/products/{cid}", headers=owner, json={"physical": True, "stock": 3, "price": 0, "publish": True})
+    assert r.status == 400                                                   # کالای رایگان نداریم
+    r = await client.patch(f"/api/products/{cid}", headers=owner, json={"physical": True, "stock": 3, "price": 20, "publish": True})
+    p = await r.json()
+    assert r.status == 200 and p["physical"] is True and p["stock"] == 3 and p["status"] == "active"
+    assert (await (await client.get("/api/orders", headers=owner)).json())["shipping_fee"] == 45
+
+
+async def test_buyer_addresses_are_not_kept_forever(env):
+    from datetime import timedelta
+
+    from app import orders
+    c = await make_physical(env)
+    paid = await fill_form(env, c)
+    await pay_order(env, paid, charge="keep-1")
+    await env.feed(env.shop, callback(OWNER, f"shipnow:{paid.id}"))
+    fresh = await fill_form(env, c, buyer=STRANGER)                 # فرم تازه و پرداخت‌نشده: می‌ماند
+    async with SessionLocal() as s:
+        old_pending = Order(content_id=c.id, bot_id=SHOP_ID, buyer_id=STRANGER, amount=50, name="ن", phone="0912",
+                            address="نشانی قدیمی", created_at=orders.utcnow() - timedelta(days=3))
+        s.add(old_pending)
+        await s.commit()
+        old_id = old_pending.id
+        await orders.cleanup(s)
+        assert await s.get(Order, old_id) is None                   # فرم پرداخت‌نشده‌ی سه‌روزه حذف شد
+        assert (await s.get(Order, fresh.id)).address
+        assert (await s.get(Order, paid.id)).address                # تازه ارسال شده: نشانی هنوز لازم است
+        (await s.get(Order, paid.id)).shipped_at = orders.utcnow() - timedelta(days=91)
+        await s.commit()
+        await orders.cleanup(s)
+    async with SessionLocal() as s:
+        o = await s.get(Order, paid.id)
+        assert o.status == "shipped" and (o.name, o.phone, o.address, o.postal_code) == ("", "", "", None)
+    env.tg.clear()
+    await env.feed(env.shop, callback(BUYER, f"order:{c.id}"))      # نشانیِ پاک‌شده دوباره پیشنهاد نمی‌شود
+    assert "۱ از ۴" in env.tg.texts(SHOP_ID)

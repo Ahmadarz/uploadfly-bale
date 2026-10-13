@@ -10,6 +10,7 @@ from app import creator, looks, showcases
 from app.connect import active_seller
 from app.db import Content, Like, Membership, Seller, SessionLocal, User, is_id
 from app.products import shop_rating
+from app.shop import SHIPPING_MAX
 from app.texts import T
 from app.web import error, get_user, guest_of_seller_bot, is_int, json_object, owned_content, rate_ok, store_content
 
@@ -22,6 +23,7 @@ async def creator_json(session, seller: Seller, user: User, main_username: str) 
     view = await creator.fans_view(session, seller)
     return {"bio": seller.bio or "", "category": seller.category, "listed": seller.listed, "dm_mode": seller.dm_mode,
             "welcome": seller.welcome or "", "watermark": seller.watermark,
+            "shipping_fee": seller.shipping_fee or 0, "shipping_max": SHIPPING_MAX,
             "categories": creator.CREATOR_CATEGORIES, "dm_modes": creator.DM_MODES,
             "bio_max": creator.BIO_MAX, "welcome_max": creator.WELCOME_MAX,
             "followers": view["followers"], "counts": view["counts"],
@@ -77,6 +79,10 @@ async def api_creator_update(request: web.Request) -> web.Response:
             if body["dm_mode"] not in creator.DM_MODES:
                 return error("bad_request")
             seller.dm_mode = body["dm_mode"]
+        if "shipping_fee" in body:   # هزینه‌ی ارسال هر سفارش کالای فیزیکی (تومان)؛ ۰ = ارسال رایگان
+            if not is_int(body["shipping_fee"]) or not 0 <= body["shipping_fee"] <= SHIPPING_MAX:
+                return error("bad_shipping")
+            seller.shipping_fee = body["shipping_fee"]
         for key in ("listed", "watermark"):
             if key in body:
                 setattr(seller, key, body[key] is True)

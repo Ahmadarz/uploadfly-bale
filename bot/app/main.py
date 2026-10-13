@@ -1,18 +1,18 @@
 import asyncio
 import logging
 
-from aiogram import Dispatcher
-from PIL import Image
+from aiogram import Dispatcher, F
 from aiogram.exceptions import TelegramNetworkError
 from aiogram.types import MenuButtonWebApp, WebAppInfo
 
 from app import admin, connect, creator, handlers, orders, payments, shop
+from app.bale import invoice_failed
 from app.bots import BotManager, make_bot, setup_commands
 from app.config import settings
 from app.db import init_db
 from app.middlewares import DbMiddleware
 from app.tunnel import start_tunnel
-from app.web import WEBAPP_DIR, start_web
+from app.web import start_web
 
 
 def build_dispatcher() -> Dispatcher:
@@ -23,6 +23,8 @@ def build_dispatcher() -> Dispatcher:
     # orders قبل از creator: متن‌های فرم سفارش (نام، نشانی...) نباید «پیام به فروشنده» حساب شوند
     dp.include_routers(admin.router, connect.router, shop.router, payments.router, orders.router, creator.router,
                        handlers.router)
+    # فاکتوری که ساخته نشد (کیف پول ثبت نشده یا باطل): خریدار پیام می‌گیرد و صاحب فروشگاه خبردار می‌شود
+    dp.errors.register(payments.pay_unavailable, F.exception.func(invoice_failed))
     return dp
 
 
@@ -65,29 +67,12 @@ async def start_mini_app(bot, manager: BotManager, username: str) -> str | None:
     if not url:
         tunnel = await start_tunnel(settings.webapp_port)
         url = tunnel[1] if tunnel else None
-    await ensure_logo(bot)
     if url:
         try:
             await bot.set_chat_menu_button(menu_button=MenuButtonWebApp(text="UploadFly", web_app=WebAppInfo(url=url)))
         except TelegramNetworkError:
             logging.warning("Could not set the Mini App menu button")
     return url
-
-
-async def ensure_logo(bot) -> None:
-    """لوگوی Mini App: اگر فایل لوگو نیست، عکس پروفایل خود ربات استفاده می‌شود."""
-    logo = WEBAPP_DIR / "logo.jpg"
-    if logo.exists():
-        return
-    try:
-        photos = await bot.get_user_profile_photos(bot.id, limit=1)
-        if photos.total_count:
-            raw = await bot.download(photos.photos[0][-1].file_id)
-            img = Image.open(raw).convert("RGB")
-            img.thumbnail((256, 256))  # لوگوی کوچک: از تونل/اینترنت کند سریع می‌رسد
-            img.save(logo, "JPEG", quality=85)
-    except Exception:
-        logging.warning("Could not fetch the bot's profile photo for the Mini App logo")
 
 
 if __name__ == "__main__":

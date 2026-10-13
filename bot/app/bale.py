@@ -16,6 +16,7 @@ from aiohttp import FormData
 from aiogram.client.session.aiohttp import AiohttpSession
 from aiogram.client.session.middlewares.base import BaseRequestMiddleware
 from aiogram.client.telegram import TelegramAPIServer
+from aiogram.exceptions import TelegramAPIError
 from aiogram.types import Update
 
 API = TelegramAPIServer.from_base("https://tapi.bale.ai")
@@ -27,6 +28,7 @@ UNSUPPORTED = {"SetMyDescription", "SetMyShortDescription", "SetMyName", "SetCha
 INTERNAL_CURRENCY = "XTR"   # برچسب داخلی برنامه برای «تومان» (نام قدیمی؛ به بله فرستاده نمی‌شود)
 BALE_CURRENCY = "IRR"
 RIALS_PER_TOMAN = 10
+INVOICE_METHODS = ("SendInvoice", "CreateInvoiceLink")
 TEST_WALLET = "WALLET-TEST-1111111111111111"  # توکن آزمایشی بله: مثل واقعی رفتار می‌کند ولی پولی جابه‌جا نمی‌شود
 
 # توکن کیف پول هر بازو (شناسه‌ی بازو ← توکن)؛ هنگام روشن شدن بازو و تغییر کیف پول پر می‌شود
@@ -42,6 +44,12 @@ def set_wallet(bot_id: int, token: str | None) -> None:
         _wallets[bot_id] = token
     else:
         _wallets.pop(bot_id, None)
+
+
+def invoice_failed(exc: BaseException) -> bool:
+    """خطایی که یعنی «فاکتور ساخته نشد»: کیف پول ثبت نشده، یا بله فاکتور را نپذیرفته (مثلاً توکن کیف پول باطل شده)."""
+    return isinstance(exc, NoWallet) or (
+        isinstance(exc, TelegramAPIError) and type(getattr(exc, "method", None)).__name__ in INVOICE_METHODS)
 
 
 def to_toman(update: Update) -> Update:
@@ -85,7 +93,7 @@ class BaleMiddleware(BaseRequestMiddleware):
         if name in UNSUPPORTED:
             return True
         update = {}
-        if name in ("SendInvoice", "CreateInvoiceLink"):
+        if name in INVOICE_METHODS:
             token = _wallets.get(bot.id)
             if not token:
                 raise NoWallet(f"bot {bot.id} has no wallet token")

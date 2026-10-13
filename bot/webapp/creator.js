@@ -137,6 +137,7 @@ creator.renderStore = function renderStore() {
   const { shop } = store.data, sc = store.data.showcase;
   if (!sc && shop.bio) { $("store-desc").classList.remove("hidden"); $("store-desc").textContent = shop.bio; }
   $("store-actions").classList.toggle("hidden", !!shop.is_owner || shop.suspended);
+  $("store-tip").classList.toggle("hidden", shop.pay === false);   // فروشگاه بدون کیف پول نمی‌تواند پول بگیرد
   $("store-tip").onclick = () => { tap(); creator.openTip(null); };
   $("store-message").classList.toggle("hidden", shop.dm_mode === "off");
   $("store-message").onclick = creator.startChat;
@@ -202,7 +203,7 @@ creator.renderBuy = function renderBuy(item) {
   like.classList.toggle("on", !!item.liked);
   $("buy-likes").textContent = item.likes || 0;
   like.onclick = () => creator.toggleLike(item);
-  const canTip = (item.bought || item.unlocked) && !store.data.shop.is_owner && !store.data.shop.suspended;
+  const canTip = (item.bought || item.unlocked) && !store.data.shop.is_owner && !store.data.shop.suspended && store.data.shop.pay !== false;
   $("buy-tip").classList.toggle("hidden", !canTip);
   $("buy-tip").onclick = () => { tap(); creator.openTip(item.id); };
 };

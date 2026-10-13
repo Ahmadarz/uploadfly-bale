@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import creator, preview, showcases
 from app.bots import set_user_menu
-from app.connect import Connect, active_seller, create_shop_markup
+from app.connect import Connect, active_seller, create_shop_markup, wallet_cmd
 from app.content import deliver, extract_content
 from app.trust import is_blacklisted, price_cap
 from app.products import MAX_PRICE, MIN_PRICE, PRICE_PRESETS, build_link, link_keyboard, publish
@@ -111,6 +111,9 @@ async def open_link(message: Message, command: CommandObject, session: AsyncSess
     if code == "upload" and seller is not None:  # از دکمه‌ی «آپلود محصول» در Mini App یا ربات اصلی
         t = T(db_user.language)
         await message.answer(t["upload_prompt"] if seller.owner_id == db_user.id else t["seller_only_owner"])
+        return
+    if code == "wallet" and seller is None:   # از Mini App یا پیام «کیف پولت را ثبت کن»
+        await wallet_cmd(message, session, db_user, state)
         return
     if code == "connect" and seller is None:  # از دکمه‌ی «ساخت فروشگاه» در Mini App
         t = T(db_user.language)

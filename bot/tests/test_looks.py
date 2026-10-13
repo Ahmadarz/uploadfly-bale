@@ -129,11 +129,11 @@ async def test_style_and_social_links(env, client):  # noqa: F811
 
     # لینک‌ها: فقط https و دامنه‌ی همان شبکه؛ «website» هر سایت https
     r = await client.patch("/api/look", headers=owner(), json={"links": [
-        {"kind": "instagram", "url": "instagram.com/my.page"}, {"kind": "telegram", "url": "https://t.me/mychannel"},
+        {"kind": "instagram", "url": "instagram.com/my.page"}, {"kind": "telegram", "url": "https://ble.ir/mychannel"},
         {"kind": "website", "url": "https://example.com/shop?a=1#frag"}, {"kind": "youtube", "url": ""}]})
     links = (await r.json())["links"]
     assert r.status == 200 and links == [
-        {"kind": "instagram", "url": "https://instagram.com/my.page"}, {"kind": "telegram", "url": "https://t.me/mychannel"},
+        {"kind": "instagram", "url": "https://instagram.com/my.page"}, {"kind": "telegram", "url": "https://ble.ir/mychannel"},
         {"kind": "website", "url": "https://example.com/shop?a=1"}]
     assert (await (await client.get(f"/api/sc/{sc['code']}", headers=as_user(BUYER))).json())["look"]["links"] == links
     for bad in ([{"kind": "instagram", "url": "https://evil.com/instagram.com"}],

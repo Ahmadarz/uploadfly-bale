@@ -243,6 +243,9 @@ async def tip_cmd(message: Message, db_user: User, seller: Seller):
     if seller.owner_id == db_user.id:
         await message.answer(t["tip_owner_self"])
         return
+    if not seller.wallet_enc:   # فروشگاه بدون کیف پول نمی‌تواند پول بگیرد
+        await message.answer(t["pay_unavailable"])
+        return
     await message.answer(t["tip_choose"], reply_markup=tip_markup(db_user.language))
 
 

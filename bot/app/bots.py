@@ -111,6 +111,8 @@ class BotManager:
                 from app import looks
                 async with SessionLocal() as session:
                     await looks.cleanup_orphans(session)  # عکس‌های آپلودشده‌ای که هیچ‌جا استفاده نشدند
+                    from app import orders
+                    await orders.cleanup(session)         # نشانی خریدارها بیش از نیاز نگه داشته نمی‌شود
             except asyncio.CancelledError:
                 raise
             except Exception:

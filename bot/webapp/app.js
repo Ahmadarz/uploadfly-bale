@@ -217,6 +217,8 @@ function renderHome() {
   $("status-text").textContent = shop.suspended ? t("suspended_short") : `@${shop.bot}`;
   $("status-dot").classList.toggle("red", shop.suspended);
   $("suspended").classList.toggle("hidden", !shop.suspended);
+  $("need-wallet").classList.toggle("hidden", shop.wallet !== false);
+  $("need-wallet").onclick = () => { tap(); openTelegram(shop.wallet_link); };
   if (!renderHome.counted) { countUp($("st-balance"), shop.balance); renderHome.counted = true; }
   else $("st-balance").textContent = num(shop.balance) ?? "?";
   shortSum("st-today-sum", shop.today_sum);
@@ -233,6 +235,7 @@ function renderHome() {
   renderChart(shop.chart);
   creator.renderTools();
   creator.renderBanners();
+  if (typeof orders !== "undefined") orders.renderRow();
 }
 
 // بعد از زدن «ساخت فروشگاه»، تلگرام صفحه‌ی ساخت ربات را باز می‌کند؛ تا ۳ دقیقه منتظر می‌مانیم تا فروشگاه وصل شود
@@ -309,7 +312,7 @@ function renderProducts() {
       <div class="thumb skeleton"></div>
       <div class="card-info">
         <div class="card-name">${esc(productName(p))}</div>
-        <div class="card-meta">${p.rating ? `<span class="rating-num"><svg class="star"><use href="#i-star"/></svg><b class="num">${p.rating.avg}</b></span>` : ""}<span><svg><use href="#i-eye"/></svg><b class="num">${p.views}</b></span><span><svg><use href="#i-cart"/></svg><b class="num">${p.sales}</b></span>${p.reports ? `<span class="red">🚩 <b class="num">${p.reports}</b></span>` : ""}${p.in_store === false && state.tab !== "archived" ? `<span class="link-only"><svg><use href="#i-link"/></svg>${t("link_only")}</span>` : ""}</div>
+        <div class="card-meta">${p.rating ? `<span class="rating-num"><svg class="star"><use href="#i-star"/></svg><b class="num">${p.rating.avg}</b></span>` : ""}<span><svg><use href="#i-eye"/></svg><b class="num">${p.views}</b></span><span><svg><use href="#i-cart"/></svg><b class="num">${p.sales}</b></span>${p.reports ? `<span class="red">🚩 <b class="num">${p.reports}</b></span>` : ""}${p.in_store === false && state.tab !== "archived" ? `<span class="link-only"><svg><use href="#i-link"/></svg>${t("link_only")}</span>` : ""}${p.physical ? `<span class="link-only ${p.stock === 0 ? "out" : ""}"><svg><use href="#i-box"/></svg>${p.stock === 0 ? t("post_sold_out") : p.stock == null ? t("ed_physical_tag") : t("ed_stock_n", p.stock)}</span>` : ""}</div>
       </div>
       ${p.sensitive ? '<span class="sens-chip">⏳</span>' : ""}
       ${state.tab === "draft" ? "" : priceChip(p)}
@@ -691,7 +694,10 @@ function humanDuration(s) {
 }
 
 function editorValues() {
-  return { price: Number($("ed-price").value || 0), sensitive: $("ed-sensitive").checked, allow_save: $("ed-save").checked,
+  const physical = $("ed-physical").checked;
+  return { price: Number($("ed-price").value || 0), sensitive: !physical && $("ed-sensitive").checked,
+           allow_save: !physical && $("ed-save").checked,
+           physical, stock: physical && $("ed-stock").value !== "" ? Number($("ed-stock").value) : null,
            in_store: state.edShowcases.main, showcases: [...state.edShowcases.ids].sort((a, b) => a - b),
            expires_at: $("ed-expiry").value,
            title: $("ed-title").value.trim(), description: $("ed-desc").value.trim(), category: state.category };
@@ -702,7 +708,8 @@ function isDirty() {
   return p.status === "draft" || v.price !== p.price || v.sensitive !== p.sensitive || v.allow_save !== p.allow_save || v.in_store !== p.in_store
     || v.showcases.join() !== [...(p.showcases || [])].sort((a, b) => a - b).join()
     || v.expires_at !== (p.expires_at ? localDate(p.expires_at) : "")
-    || v.title !== (p.title || "") || v.description !== (p.description || "") || v.category !== p.category;
+    || v.title !== (p.title || "") || v.description !== (p.description || "") || v.category !== p.category
+    || v.physical !== !!p.physical || (v.physical && v.stock !== (p.stock ?? null));
 }
 
 function syncEditor() {
@@ -711,6 +718,10 @@ function syncEditor() {
   document.querySelectorAll("#ed-cats .chip").forEach((c) => c.classList.toggle("active", c.dataset.c === v.category));
   $("ed-save-row").classList.toggle("disabled", v.sensitive);
   if (v.sensitive) $("ed-save").checked = false;
+  // کالای فیزیکی: موجودی به‌جای «حساس» و «اجازه‌ی ذخیره» (چیزی در چت تحویل نمی‌شود)
+  $("ed-stock-box").classList.toggle("hidden", !v.physical);
+  $("ed-sensitive-row").classList.toggle("hidden", v.physical);
+  $("ed-save-row").classList.toggle("hidden", v.physical);
   const mb = tg.MainButton;
   mb.setText(p.status === "draft" ? t("publish") : t("save"));
   if (isDirty() && p.status !== "archived") mb.show(); else mb.hide();
@@ -750,6 +761,11 @@ function openEditor(p) {
   });
   $("ed-sensitive").checked = p.sensitive;
   $("ed-save").checked = p.allow_save;
+  $("ed-physical").checked = !!p.physical;
+  $("ed-physical-row").classList.toggle("hidden", p.status !== "draft");   // بعد از انتشار نوع محصول عوض نمی‌شود
+  $("ed-stock").value = p.stock ?? "";
+  const fee = me.shop ? me.shop.shipping_fee : 0;
+  $("ed-ship-note").textContent = fee ? t("ed_ship_note", fee) : t("ed_ship_note_free");
   state.edShowcases = { main: p.in_store, ids: new Set(p.showcases || []) };
   $("ed-expiry").value = p.expires_at ? localDate(p.expires_at) : "";
   renderEdShowcases();
@@ -778,14 +794,17 @@ async function saveEditor() {
   if (!Number.isInteger(v.price) || v.price < 0 || v.price > me.max_price) return toast(t("err_bad_price"));
   const cap = me.shop ? me.shop.price_cap : me.max_price;
   if (v.price > p.price && v.price > cap) { haptic("error"); return toast(t("err_price_cap", cap)); }
+  if (v.physical && v.price === 0) { haptic("error"); return toast(t("err_phys_price")); }
+  if (v.physical && v.stock !== null && (!Number.isInteger(v.stock) || v.stock < 0 || v.stock > 100000)) { haptic("error"); return toast(t("err_bad_stock")); }
   const body = { sensitive: v.sensitive, allow_save: v.allow_save, in_store: v.in_store, showcases: v.showcases,
                  ...(v.expires_at !== (p.expires_at ? localDate(p.expires_at) : "") ? { expires_at: endOfDay(v.expires_at) } : {}), price: v.price, title: v.title, description: v.description };
   if (v.category !== p.category) body.category = v.category || null;
-  if (p.status === "draft") body.publish = true;
+  if (p.status === "draft") { body.publish = true; body.physical = v.physical; }
+  if (v.physical) body.stock = v.stock;
   const mb = tg.MainButton;
   mb.showProgress(); mb.disable();
   try {
-    const needsPreview = v.price > 0 && (p.status === "draft" || p.price === 0 || v.sensitive !== p.sensitive);
+    const needsPreview = v.price > 0 && !v.physical && (p.status === "draft" || p.price === 0 || v.sensitive !== p.sensitive);
     const updated = await api(`/api/products/${p.id}`, { method: "PATCH", body: JSON.stringify(body) });
     haptic("success");
     toast(p.status === "draft" ? t("published") : needsPreview ? t("preview_note") : t("saved"));
@@ -824,6 +843,8 @@ function initEditor() {
   $("ed-title").oninput = syncEditor;
   $("ed-desc").oninput = () => { $("ed-desc-count").textContent = `${$("ed-desc").value.length}/${me.description_max}`; syncEditor(); };
   $("ed-sensitive").onchange = syncEditor;
+  $("ed-physical").onchange = () => { tap(); syncEditor(); };
+  $("ed-stock").oninput = syncEditor;
   $("ed-expiry").onchange = syncEditor;
   $("ed-expiry-clear").onclick = () => { tap(); $("ed-expiry").value = ""; syncEditor(); };
 
@@ -1664,6 +1685,7 @@ async function renderStart() {
   const mainLink = `https://ble.ir/${shop.bot}?start=store`;
   const steps = [
     { k: "shop", done: true },
+    { k: "wallet", done: shop.wallet !== false, go: () => openTelegram(shop.wallet_link) },
     { k: "product", done: products > 0, go: () => openTelegram(`https://ble.ir/${shop.bot}?start=upload`) },
     { k: "look", done: !!shop.has_look, go: async () => { await openStore(shop.bot_id, true); openLookSheet(); } },
     { k: "bio", done: !!(await storageGet(BIO_DONE)), go: () => copyText(mainLink, $("start-list")).then(() => { toast(t("sc_bio_copied")); markBioCopied(); }) },
@@ -1806,7 +1828,7 @@ function closeLangSheet() {
   // اگر برگه‌ی بزرگی (خرید، ویرایشگر) هنوز باز است، پس‌زمینه‌ی تیره‌اش بماند
   if (!state.current && !store.current && !scEd.open) $("overlay").classList.remove("open");
   document.querySelectorAll(".small-sheet.open").forEach((x) => x.classList.remove("open"));
-  if (!state.current && !store.current && !walletOpen()) tg.BackButton.hide();
+  if (!state.current && !store.current && !walletOpen() && !subPage.current) tg.BackButton.hide();
 }
 const langSheetOpen = () => !!document.querySelector(".small-sheet.open");
 
@@ -1908,7 +1930,8 @@ function purchaseRow(p) {
       ${kicon(p.kind)}
       <span class="purchase-meta"><b>${esc(p.title || t("kinds")[p.kind])}</b>
         <small><span class="num gold">${toman(p.amount)}</span> · <bdi>@${esc(p.shop)}</bdi></small>
-        <span class="tag ${p.opened ? "" : "new"}">${p.opened ? t("opened_tag") : t("not_opened_tag")}</span></span>
+        ${p.order && p.order.tracking ? `<small>${t("ord_tracking")}: <bdi class="num">${esc(p.order.tracking)}</bdi></small>` : ""}
+        <span class="tag ${p.order ? (p.order.status === "paid" ? "new" : "") : p.opened ? "" : "new"}">${p.order ? t("ord_st_" + p.order.status) : p.opened ? t("opened_tag") : t("not_opened_tag")}</span></span>
       <svg class="chev"><use href="#i-chev"/></svg>
     </button>`;
 }

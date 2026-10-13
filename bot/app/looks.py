@@ -36,7 +36,8 @@ STYLE_DEFAULT = {"card": "round", "layout": "feed", "accent": "auto", "buttons":
 
 # لینک شبکه‌های اجتماعی (مثل Linktree): فقط https و فقط دامنه‌ی همان شبکه
 SOCIAL_HOSTS = {
-    "instagram": ("instagram.com",), "telegram": ("t.me", "telegram.me"), "youtube": ("youtube.com", "youtu.be"),
+    "instagram": ("instagram.com",), "youtube": ("youtube.com", "youtu.be"),
+    "telegram": ("ble.ir", "bale.ai"),   # کلید قدیمی؛ در نسخه‌ی بله یعنی کانال یا صفحه‌ی بله (برچسبش «بله» است)
     "x": ("x.com", "twitter.com"), "tiktok": ("tiktok.com",), "website": None,
 }
 SOCIAL_MAX_URL = 200

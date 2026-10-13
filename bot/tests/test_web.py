@@ -208,7 +208,7 @@ async def test_index_works_without_logo(client, monkeypatch, tmp_path):
         shutil.copy(webmod.WEBAPP_DIR / name, tmp_path / name)
     monkeypatch.setattr(webmod, "WEBAPP_DIR", tmp_path)
     r = await client.get("/")
-    assert r.status == 200 and "/static/logo.jpg?v=0" in await r.text()
+    assert r.status == 200 and "/static/logo.png?v=0" in await r.text()
 
 
 async def test_translation_change_refreshes_app_version():

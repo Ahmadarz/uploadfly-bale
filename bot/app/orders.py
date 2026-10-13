@@ -9,14 +9,14 @@
 import html
 import logging
 import re
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from aiogram import Bot, F, Router
 from aiogram.filters import Command, StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, LabeledPrice, Message
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import Content, Order, Purchase, Seller, User, cb_id, is_id
@@ -36,6 +36,9 @@ ADDRESS_MIN, ADDRESS_MAX = 10, 500
 TRACKING_MAX = 64
 STOCK_MAX = 100_000
 CAPTION_MAX = 1000          # سقف کپشن عکس در بله/تلگرام ۱۰۲۴ است
+# حریم خصوصی: نام، موبایل و نشانی خریدار فقط تا وقتی لازم است نگه داشته می‌شود (cleanup، هر ۳۰ دقیقه)
+PENDING_KEEP = timedelta(hours=48)    # فرمی که پر شد ولی پرداخت نشد
+ADDRESS_KEEP = timedelta(days=90)     # سفارش ارسال‌شده یا لغوشده (مهلت گزارش ۳۰ روز است)
 _DIGITS = str.maketrans("۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩", "01234567890123456789")
 
 
@@ -60,6 +63,18 @@ FORM_STATES = (OrderForm.name, OrderForm.phone, OrderForm.address, OrderForm.pos
 
 def utcnow() -> datetime:
     return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
+async def cleanup(session: AsyncSession) -> None:
+    """سفارش‌های پرداخت‌نشده‌ی قدیمی حذف می‌شوند و نشانیِ سفارش‌های تمام‌شده بعد از ۹۰ روز پاک می‌شود
+    (خود سفارش برای آمار می‌ماند)."""
+    now = utcnow()
+    await session.execute(delete(Order).where(Order.status == "pending", Order.created_at < now - PENDING_KEEP))
+    await session.execute(update(Order).where(
+        Order.status.in_(("shipped", "canceled")), Order.address != "",
+        func.coalesce(Order.shipped_at, Order.paid_at) < now - ADDRESS_KEEP)
+        .values(name="", phone="", address="", postal_code=None))
+    await session.commit()
 
 
 def latin_digits(text: str) -> str:
@@ -158,8 +173,8 @@ async def order_start(callback: CallbackQuery, session: AsyncSession, db_user: U
         await callback.message.answer(t["order_own" if mine else "order_unavailable"])
         return
     await state.clear()
-    last = await session.scalar(select(Order).where(Order.buyer_id == db_user.id, Order.status != "pending")
-                                .order_by(Order.id.desc()))
+    last = await session.scalar(select(Order).where(Order.buyer_id == db_user.id, Order.status != "pending",
+                                                    Order.address != "").order_by(Order.id.desc()))
     if last is not None:   # نشانی سفارش قبلی خود همین خریدار (در هر فروشگاهی)
         await state.update_data(content_id=c.id, name=last.name, phone=last.phone, address=last.address,
                                 postal=last.postal_code)
@@ -345,8 +360,9 @@ async def order_paid(message: Message, session: AsyncSession, db_user: User, bot
 
 # ---------------- ارسال و کد رهگیری ----------------
 def ship_markup(order: Order, t: dict) -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(
-        text=t["btn_ship"].format(id=order.id), callback_data=f"ship:{order.id}")]])
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text=t["btn_ship"].format(id=order.id), callback_data=f"ship:{order.id}")],
+        [InlineKeyboardButton(text=t["btn_order_cancel"].format(id=order.id), callback_data=f"ocancel:{order.id}")]])
 
 
 async def own_open_order(session: AsyncSession, order_id: int, bot: Bot, seller: Seller, user: User) -> Order | None:
@@ -374,8 +390,8 @@ async def ship_start(callback: CallbackQuery, session: AsyncSession, db_user: Us
 async def ship_tracking(message: Message, session: AsyncSession, db_user: User, bot: Bot, seller: Seller,
                         state: FSMContext):
     t = T(db_user.language)
-    code = latin_digits(" ".join(message.text.split()))
-    if not 4 <= len(code) <= TRACKING_MAX:
+    code = clean_tracking(message.text)
+    if code is None:
         await message.answer(t["bad_tracking"])
         return
     order = await own_open_order(session, (await state.get_data()).get("order_id") or 0, bot, seller, db_user)
@@ -394,8 +410,13 @@ async def ship_without_tracking(callback: CallbackQuery, session: AsyncSession, 
         await mark_shipped(callback.message, session, bot, order, None, T(db_user.language))
 
 
-async def mark_shipped(reply_to: Message, session: AsyncSession, bot: Bot, order: Order, tracking: str | None,
-                       t: dict) -> None:
+def clean_tracking(text) -> str | None:
+    code = latin_digits(" ".join(str(text or "").split()))
+    return code if 4 <= len(code) <= TRACKING_MAX else None
+
+
+async def ship_order(session: AsyncSession, bot: Bot, order: Order, tracking: str | None) -> None:
+    """سفارش «ارسال‌شده» ثبت می‌شود و خریدار کد رهگیری و دکمه‌ی امتیاز می‌گیرد (چت و Mini App هر دو)."""
     from app.payments import rating_markup
     order.status, order.tracking, order.shipped_at = "shipped", tracking, utcnow()
     await session.commit()
@@ -410,7 +431,57 @@ async def mark_shipped(reply_to: Message, session: AsyncSession, bot: Bot, order
                                if order.purchase_id else None)
     except Exception:
         pass  # خریدار بازو را مسدود کرده
+
+
+async def mark_shipped(reply_to: Message, session: AsyncSession, bot: Bot, order: Order, tracking: str | None,
+                       t: dict) -> None:
+    await ship_order(session, bot, order, tracking)
     await reply_to.answer(t["ship_done_seller"].format(id=order.id))
+
+
+async def cancel_order(session: AsyncSession, bot: Bot, order: Order) -> None:
+    """فروشنده نمی‌تواند بفرستد (ناموجود، شهر دور...). پول در کیف پول خود فروشنده است و ما نمی‌توانیم برش گردانیم؛
+    سفارش «لغوشده» می‌شود، موجودی برمی‌گردد و به خریدار گفته می‌شود پولش را از فروشنده بگیرد. Purchase دست
+    نمی‌خورد تا خریدار اگر پولش برنگشت بتواند گزارش بدهد."""
+    from app.payments import report_markup
+    order.status = "canceled"
+    c = await session.get(Content, order.content_id)
+    if c is not None and c.stock is not None:
+        c.stock += 1
+    await session.commit()
+    buyer = await session.get(User, order.buyer_id)
+    lang = buyer.language if buyer else "fa"
+    title = html.escape(display_title(c, lang)) if c else "?"
+    try:
+        await bot.send_message(order.buyer_id, T(lang)["order_canceled"].format(id=order.id, title=title, total=order.amount),
+                               reply_markup=report_markup(order.purchase_id, lang) if order.purchase_id else None)
+    except Exception:
+        pass  # خریدار بازو را مسدود کرده
+
+
+@router.callback_query(F.data.startswith("ocancel:"))
+async def cancel_ask(callback: CallbackQuery, session: AsyncSession, db_user: User, bot: Bot, seller: Seller):
+    t = T(db_user.language)
+    order = await own_open_order(session, cb_id(callback.data), bot, seller, db_user)
+    await callback.answer()
+    if order is None:
+        return
+    await callback.message.answer(t["order_cancel_confirm"].format(id=order.id, total=order.amount),
+                                  reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(
+                                      text=t["btn_order_cancel_yes"].format(id=order.id),
+                                      callback_data=f"ocancelyes:{order.id}")]]))
+
+
+@router.callback_query(F.data.startswith("ocancelyes:"))
+async def cancel_confirmed(callback: CallbackQuery, session: AsyncSession, db_user: User, bot: Bot, seller: Seller,
+                           state: FSMContext):
+    order = await own_open_order(session, cb_id(callback.data), bot, seller, db_user)
+    await callback.answer()
+    await state.clear()
+    if order is None:
+        return
+    await cancel_order(session, bot, order)
+    await callback.message.answer(T(db_user.language)["order_cancel_done"].format(id=order.id))
 
 
 @router.message(Command("orders"))
@@ -430,7 +501,8 @@ async def orders_cmd(message: Message, session: AsyncSession, db_user: User, bot
                 id=o.id, title=html.escape(display_title(c, db_user.language)), total=o.amount,
                 info=address_lines({"name": o.name, "phone": o.phone, "address": o.address, "postal": o.postal_code})))
         await message.answer("\n\n".join(lines), reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text=t["btn_ship"].format(id=o.id), callback_data=f"ship:{o.id}")] for o, _ in rows]))
+            [InlineKeyboardButton(text=t["btn_ship"].format(id=o.id), callback_data=f"ship:{o.id}"),
+             InlineKeyboardButton(text=t["btn_order_cancel_short"], callback_data=f"ocancel:{o.id}")] for o, _ in rows]))
         return
     rows = (await session.execute(select(Order, Content).join(Content, Content.id == Order.content_id).where(
         Order.bot_id == bot.id, Order.buyer_id == db_user.id, Order.status != "pending")
@@ -440,7 +512,7 @@ async def orders_cmd(message: Message, session: AsyncSession, db_user: User, bot
         return
     lines = [t["orders_buyer_head"]]
     for o, c in rows:
-        status = t["order_status_shipped"] if o.status == "shipped" else t["order_status_paid"]
+        status = t["order_status_" + (o.status if o.status in ("shipped", "canceled") else "paid")]
         track = "\n   " + t["tracking_line"].format(code=html.escape(o.tracking)) if o.tracking else ""
         lines.append(t["order_line_buyer"].format(id=o.id, title=html.escape(display_title(c, db_user.language)),
                                                   status=status) + track)

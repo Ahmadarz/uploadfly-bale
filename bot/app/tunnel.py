@@ -1,7 +1,8 @@
-"""تونل HTTPS موقت برای توسعه روی مک (Cloudflare quick tunnel، رایگان و بدون حساب).
+"""تونل HTTPS موقت برای آزمایش روی کامپیوتر خود مالک (Cloudflare quick tunnel، رایگان و بدون حساب).
 
-تلگرام فقط Mini App با آدرس HTTPS را باز می‌کند. روی سرور به‌جای این، WEBAPP_URL ثابت در .env گذاشته می‌شود.
-آدرس تونل با هر اجرا عوض می‌شود؛ ربات هر بار خودش آن را روی دکمه‌ی منو می‌گذارد.
+بله فقط Mini App با آدرس HTTPS را باز می‌کند. روی سرور به‌جای این، WEBAPP_URL ثابت در .env گذاشته می‌شود.
+آدرس تونل با هر اجرا عوض می‌شود؛ دکمه‌ی «باز کردن UploadFly» در /start همان آدرس تازه را می‌گیرد.
+cloudflared باید نصب باشد، یا فایل cloudflared.exe در پوشه‌ی tools/ کنار پوشه‌ی bot/ گذاشته شود.
 """
 import asyncio
 import logging
@@ -9,6 +10,8 @@ import os
 import re
 import shutil
 import signal
+
+from pathlib import Path
 
 import aiohttp
 
@@ -19,9 +22,24 @@ URL_RE = re.compile(rb"https://[a-z0-9-]+\.trycloudflare\.com")
 
 
 def find_cloudflared() -> str | None:
-    return shutil.which("cloudflared") or (
-        "/opt/homebrew/opt/cloudflared/bin/cloudflared" if shutil.os.path.exists(
-            "/opt/homebrew/opt/cloudflared/bin/cloudflared") else None)
+    found = shutil.which("cloudflared")
+    if found:
+        return found
+    root = Path(__file__).resolve().parent.parent.parent
+    for path in (root / "tools" / "cloudflared.exe", root / "tools" / "cloudflared",
+                 Path("/opt/homebrew/opt/cloudflared/bin/cloudflared")):
+        if path.is_file():
+            return str(path)
+    return None
+
+
+async def _read_url(proc: asyncio.subprocess.Process) -> str | None:
+    while True:
+        line = await proc.stderr.readline()
+        if not line:
+            return None
+        if m := URL_RE.search(line):
+            return m.group(0).decode()
 
 
 async def start_tunnel(port: int, timeout: float = 40) -> tuple[asyncio.subprocess.Process, str] | None:
@@ -32,17 +50,10 @@ async def start_tunnel(port: int, timeout: float = 40) -> tuple[asyncio.subproce
     proc = await asyncio.create_subprocess_exec(
         exe, "tunnel", "--no-autoupdate", "--url", f"http://127.0.0.1:{port}",
         stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.PIPE)
-    url = None
     try:
-        async with asyncio.timeout(timeout):
-            while url is None:
-                line = await proc.stderr.readline()
-                if not line:
-                    break
-                if m := URL_RE.search(line):
-                    url = m.group(0).decode()
-    except TimeoutError:
-        pass
+        url = await asyncio.wait_for(_read_url(proc), timeout)
+    except asyncio.TimeoutError:
+        url = None
     if url is None:
         proc.kill()
         log.warning("Could not start Cloudflare tunnel; Mini App disabled")
@@ -59,7 +70,7 @@ async def start_tunnel(port: int, timeout: float = 40) -> tuple[asyncio.subproce
 async def _drain(proc: asyncio.subprocess.Process) -> None:
     while await proc.stderr.readline():
         pass
-    # تونل مرده؛ آدرسش دیگر کار نمی‌کند. برنامه را می‌بندیم تا launchd با تونل و دکمه‌ی منوی تازه بالا بیاورد
+    # تونل مرده؛ آدرسش دیگر کار نمی‌کند. برنامه را می‌بندیم تا سرویس‌دهنده (یا خود مالک) با تونل تازه بالا بیاورد
     await proc.wait()
     log.error("Cloudflare tunnel exited (code %s); restarting the app for a new tunnel", proc.returncode)
     os.kill(os.getpid(), signal.SIGTERM)

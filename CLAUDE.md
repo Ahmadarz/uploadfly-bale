@@ -160,6 +160,10 @@
     "copy the bot's profile photo" step was removed.
   - Scripts: `app.js`, then `creator.js`, then `orders.js` (each versioned in `web.index`). New pages follow the
     sub-page pattern (`openSubPage`), small sheets use `openSmallSheet` / `closeLangSheet`.
+  - In-app payment result: the shape Bale gives back is still unseen on a real phone, so `bale.js` maps every
+    common form to Telegram's words (`paid` / `cancelled` / `failed` / `unknown`) and, unless it is plainly `paid`,
+    `app.js: paidOnServer` asks the server for a few seconds whether the purchase or membership was recorded
+    (the payment reaches the seller bot on its own). Keep the server as the source of truth.
   - Small stat tiles shorten millions (`shortSum`: "12.5" + "میلیون تومان"); full numbers do not fit at 375px.
   - Story card "save": Bale has no `downloadFile`; the phone's share sheet is tried (`navigator.share` with a file),
     then the long-press hint.

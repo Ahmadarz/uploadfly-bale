@@ -101,7 +101,14 @@
     return true;
   };
   const vibrate = (ms) => safe(() => navigator.vibrate && navigator.vibrate(ms));
-  const status = (r) => (typeof r === "string" ? r : (r && r.status) || "failed");  // بله: رشته یا {status}
+  // نتیجه‌ی فاکتور در بله هنوز روی گوشی واقعی دیده نشده (رشته یا {status})؛ هر شکل رایج به همان واژه‌های تلگرام
+  // برگردانده می‌شود و هر چیز ناشناخته «unknown» است تا برنامه از سرور بپرسد (app.js: paidOnServer)
+  const status = (r) => {
+    const s = String(typeof r === "string" ? r : (r && (r.status || r.result || r.state)) || "unknown").toLowerCase();
+    if (["paid", "success", "succeeded", "successful", "done", "ok"].includes(s)) return "paid";
+    if (["cancelled", "canceled", "cancel", "closed"].includes(s)) return "cancelled";
+    return s === "failed" || s === "pending" ? s : "unknown";
+  };
 
   const adapter = {
     get initData() { return B.initData || ""; },

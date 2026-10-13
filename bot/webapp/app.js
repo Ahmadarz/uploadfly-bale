@@ -1142,7 +1142,7 @@ async function joinShowcase() {
     if (res.member) return reloadStore();
     tg.openInvoice(res.invoice, async (status) => {
       if (status === "unsupported") return toast(t("old_bale_pay"));
-      if (status !== "paid") return;
+      if (status !== "paid" && !(await paidOnServer((d) => d.showcase?.is_member))) return;
       haptic("success"); toast(t("sc_joined_toast"));
       for (let i = 0; i < 8; i++) {   // پرداخت چند ثانیه طول می‌کشد تا به ربات برسد
         await reloadStore();
@@ -1185,9 +1185,9 @@ async function buyCurrent() {
     if (item.bought || item.unlocked) { await showContent(); return; }
     const res = await api(`/api/store/${STORE}/invoice/${item.id}`, { method: "POST", body: "{}" });
     if (res.open) { openTelegram(res.open); return; }  // رایگان یا محصول خود فروشنده: تحویل در چت
-    tg.openInvoice(res.invoice, (status) => {
+    tg.openInvoice(res.invoice, async (status) => {
       if (status === "unsupported") return payInChat(`https://ble.ir/${res.bot}?start=${item.code}`);
-      if (status !== "paid") return;
+      if (status !== "paid" && !(await paidOnServer((d) => d.items.find((x) => x.id === item.id)?.bought))) return;
       // Mini App باز می‌ماند: خریدار همین‌جا «نمایش» یا «بازپرداخت» را انتخاب می‌کند
       haptic("success"); toast(t("paid_toast"));
       item.bought = true; item.opened = false; syncBuyButtons(); renderStore();
@@ -1197,6 +1197,17 @@ async function buyCurrent() {
     haptic("error"); toast(errMsg(e.code));
   }
   finally { mb.hideProgress(); mb.enable(); }
+}
+
+// بله نتیجه‌ی فاکتور را شاید به شکلی بدهد که نمی‌شناسیم؛ منبع مطمئن خود سرور است (پرداخت موفق به بازوی
+// فروشنده می‌رسد و ثبت می‌شود). چند ثانیه نگاه می‌کنیم که خرید ثبت شده یا نه
+async function paidOnServer(isPaid) {
+  for (let i = 0; i < 4; i++) {
+    await new Promise((r) => setTimeout(r, 1500));
+    try { await reloadStore(); } catch (e) { continue; }
+    if (isPaid(store.data)) return true;
+  }
+  return false;
 }
 
 // اپ بله‌ی قدیمی پرداخت داخل مینی‌اپ ندارد: همان خرید در چت فروشگاه انجام می‌شود

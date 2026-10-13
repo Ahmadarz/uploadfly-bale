@@ -36,3 +36,20 @@ def test_wait_time():
 async def test_lang_command_says_persian_only(env):
     await env.feed(env.main, message(BUYER, "/lang"))
     assert "فارسی" in env.tg.texts(MAIN_ID) and not env.tg.buttons(MAIN_ID)
+
+
+def test_no_false_claims_for_bale():
+    """بله قفل فوروارد ندارد و محتوای بزرگسال کلاً ممنوع است: نه در چت و نه در Mini App نباید خلافش گفته شود."""
+    import json
+    from pathlib import Path
+    mini = dict(flat(json.loads((Path(__file__).resolve().parent.parent / "webapp" / "i18n" / "fa.json")
+                                .read_text(encoding="utf-8"))))
+    banned = ("۱۸+", "+۱۸", "18+", "بزرگسال", "قابل فوروارد و ذخیره نیست", "فوروارد ممکن نیست", "محافظت‌شده تحویل",
+              "قفل فوروارد دارد", "کپی، ذخیره و فوروارد")
+    for source, texts in (("chat", dict(flat(T("fa")))), ("miniapp", mini)):
+        for key, value in texts.items():
+            for word in banned:
+                assert word not in str(value), (source, key, word)
+    for key, value in mini.items():                      # Mini App هم مثل چت: حرفی از تلگرام و استارز نیست
+        for word in ("تلگرام", "استارز", "Telegram", "Stars", "Fragment", "t.me/"):
+            assert word not in str(value), (key, word)

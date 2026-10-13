@@ -1,0 +1,7 @@
+# همه‌ی فایل‌های متنی با پایان خط لینوکسی (LF) بمانند: اسکریپت‌های سرور با CRLF خراب می‌شوند
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.woff2 binary
+*.db binary
+*.bat text eol=crlf

@@ -5,9 +5,15 @@
 > context" describes the code this port started from; treat Telegram-only parts as *not yet ported*.
 
 ## Bale port: facts and decisions
-- Owner's PC is Windows: project at `E:/cloud/uploadfly-bale`, venv at `.venv/Scripts/python.exe`, secrets in `bot/.env`.
+- Owner's PC is Windows: project at `E:/cloud/uploadfly-bale`, venv at `.venv/Scripts/python.exe` (**Python 3.10**, so
+  no 3.11-only APIs such as `asyncio.timeout`; the Docker image is 3.12), secrets in `bot/.env`.
   Tests (PowerShell): `$env:PYTHONUTF8='1'; .venv/Scripts/python.exe -m pytest -q` (without UTF-8 mode some tests fail
-  on cp1252). No ffmpeg, Docker, cloudflared or `gh` here yet. Test bot on Bale: `@uploadflybot`.
+  on cp1252; 183 tests on 2026-10-13: bot + website). No ffmpeg, Docker, cloudflared or `gh` here yet.
+  Test bot on Bale: `@uploadflybot`; the owner's test shop is `@babkad_bot` (public test wallet token).
+  The owner starts the bot with `start-bot.bat` (repo root); Claude runs it as a background task
+  (`cd bot && PYTHONUTF8=1 ../.venv/Scripts/python.exe -m app.main > bot.log 2>&1`). Never two copies at once.
+  `.gitattributes` keeps LF everywhere (server scripts break with CRLF); only `*.bat` is CRLF.
+  Edit scripts: Git Bash heredocs break on Persian text with quotes; write a small Python script with the Write tool.
 - Bale Bot API = Telegram-like at `https://tapi.bale.ai` (docs: docs.bale.ai, docs.bale.ai/miniapp). aiogram works against
   it through `app/bale.py` (`make_bale_bot`): custom API server + a request middleware that converts the app's HTML texts
   to Bale Markdown and skips methods Bale lacks. Keep writing texts as HTML; never add `parse_mode`.
@@ -38,6 +44,12 @@
      `app/texts_bale.py` (overrides on top of the old Persian texts); say «بازو», «کیف پول بله», «تومان».
   5. **No adult content at all** on Bale (Iranian law and Bale's rules); `/terms` says so. This replaces the
      Telegram decision 5 below. (Changed by Claude on 2026-10-12 as a legal necessity; owner informed.)
+     Consequences (2026-10-13): "sensitive" only means *ephemeral* (auto-deleted after the view window). There is no
+     18+ confirmation anywhere (chat gate, `/api/store/<bot>/adult` and the Mini App dialog were removed; the column
+     `User.adult_ok` is unused), and shops with sensitive items are no longer hidden from Explore.
+  6. **Honest wording is enforced by a test** (`tests/test_texts.py::test_no_false_claims_for_bale`): neither chat texts
+     nor `webapp/i18n/fa.json` may say content "cannot be forwarded/saved", mention 18+/adult, Telegram or Stars. The
+     Mini App "allow copy and save" switch was removed (Bale ignores `protect_content`, so it did nothing).
 - Money model in code:
   - Internal unit is **toman** everywhere (`app/money.py`: limits, presets, `toman()` formatter; real unit 1000,
     tests run with `PRICE_UNIT=1`). The columns `price_stars`/`amount` and the internal currency tag `"XTR"` are old
@@ -51,6 +63,13 @@
   - Monthly showcases have no auto-renewal: each payment adds 30 days (`Membership.canceled=True`), members may renew
     early; reminders ask them to pay again.
   - Wallet page: `balance` = sum of recorded income; no hold period, no minimum, no Premium.
+  - **A shop without a working wallet must never fail silently** (2026-10-13). Guards: chat pricing (`wallet_need`),
+    Mini App pricing and paid showcases (`error("no_wallet")`), `/donate`, tips hidden in the store (`shop.pay`).
+    Safety net for everything else: `bale.invoice_failed(exc)` (NoWallet, or any API error on `SendInvoice` /
+    `CreateInvoiceLink`) → bot side `payments.pay_unavailable` (registered on `dp.errors` in `main.build_dispatcher`):
+    the buyer gets `pay_unavailable`, the owner gets `pay_broken_owner` at most every 6 hours; web side middleware
+    `web.invoice_errors` answers `pay_unavailable` (409). Mini App home shows a "register your wallet" card and a
+    checklist step (`me.shop.wallet`, `wallet_link` = `ble.ir/<main>?start=wallet`, which starts the `/wallet` step).
 - Growth and seller acquisition (owner request 2026-10-12: make it practical and marketable on Bale):
   - Positioning used in every text: sell files on Bale with no website and no payment gateway; money goes straight to
     the seller's own Bale wallet; we take no share. Claims must stay literally true (no "cannot be forwarded").
@@ -92,9 +111,19 @@
     Buyer protection is the price cap, ratings and admin action on reports. Tell the owner if this proves too weak.
   - New-seller price caps were raised for Bale (`money.TIER_CAPS`): 500k / 2M / 5M toman, top 10M. Lower caps made
     goods unsellable; higher caps raise the take-the-money-and-vanish risk. Owner may tune.
+  - **Orders in the Mini App** (2026-10-13; `app/web_orders.py`, `webapp/orders.js`, page `page-orders`): home row
+    "سفارش‌های کالا" (red count while orders wait), tabs waiting/shipped/cancelled, copy address, "shipped" sheet
+    with optional tracking code, cancel, shipping-fee field (`PATCH /api/creator {shipping_fee}`). Product editor:
+    physical switch (drafts only) + stock field; product cards show a "کالا" / stock / sold-out chip. Buyers see order
+    status and tracking in "خریدها" (`/api/purchases` → `order`). Owner-only: a guest of the seller bot gets 403.
+  - **Cancel** (`orders.cancel_order`; chat buttons `ocancel:` → `ocancelyes:`, API `POST /api/orders/<id>/cancel`):
+    status `canceled`, stock +1, buyer is told to get the money back from the seller, with a report button. The
+    `Purchase` is NOT marked refunded (we cannot verify the seller paid back; the buyer must still be able to report).
+  - **Buyer addresses are not kept forever** (`orders.cleanup`, every 30 minutes): unpaid forms are deleted after 48h;
+    name/phone/address of shipped or cancelled orders are blanked 90 days later (the order row stays for stats). The
+    website privacy page promises exactly this; change both together.
   - Not built: quantity per order, product variants (size/colour), several photos per product, cities/zones with
-    different shipping fees, a Mini App editor switch for physical/stock (API exists), seller order page in the
-    Mini App.
+    different shipping fees, a reminder to sellers who do not ship.
 - Mini App on Bale (`bot/webapp/`):
   - `bale-sdk.js` = Bale's official `tapi.bale.ai/miniapp.js`, vendored inside an IIFE (the original leaks dozens of
     short globals such as `me`, which broke `app.js`). `bale.js` = adapter that exposes `window.Telegram.WebApp` on top
@@ -109,14 +138,42 @@
     (Bale has no share URL). No ring/hold/Premium/TON in the wallet.
   - Bale cannot set the menu button by API: `/start` carries a web_app button (`btn_open_app`) when `WEBAPP_URL` is
     set; the owner should also register the Mini App URL in Bale's @botfather once a fixed HTTPS address exists.
+  - Logo: `webapp/logo.png` is the brand icon (committed). Bale has no `getUserProfilePhotos`, so the old
+    "copy the bot's profile photo" step was removed.
+  - Scripts: `app.js`, then `creator.js`, then `orders.js` (each versioned in `web.index`). New pages follow the
+    sub-page pattern (`openSubPage`), small sheets use `openSmallSheet` / `closeLangSheet`.
+  - Small stat tiles shorten millions (`shortSum`: "12.5" + "میلیون تومان"); full numbers do not fit at 375px.
+  - Story card "save": Bale has no `downloadFile`; the phone's share sheet is tried (`navigator.share` with a file),
+    then the long-press hint.
+  - Known rough edge: `<input type="date">` (product expiry, showcase expiry) shows the Gregorian calendar.
   - CSP allows framing by `*.bale.ai` (Bale web opens Mini Apps in an iframe); never send `X-Frame-Options`.
+- **Website for Bale** (2026-10-13; `website/`, Persian only): pages `/`, `/sell/`, `/goods/` (physical goods),
+  `/free-link/`, `/showcase/`, `/guide/` (bot + wallet token in 3 steps), `/faq/`, `/terms/`, `/privacy/`, `/404.html`.
+  CTAs are `ble.ir/<bot>?start=src_site_<page>`. No English page, no globe, no Telegram/Stars words
+  (`test_site.py::test_no_trace_of_the_telegram_version`); internal links are checked. `build.SOCIAL` is empty until
+  official Bale-version profiles exist (the Telegram product's channels and Instagram must not be linked).
+  `assets/og-fa.jpg` was drawn in the browser on a canvas (Pillow here has no raqm, so it cannot shape Persian):
+  a throw-away local page draws 1200×630 and POSTs the PNG back; keep the tab in the foreground while it draws.
+- **Deploy for Bale** (`deploy/README.fa.md`, `docker-compose.yml`): same Docker stack (bot, PostgreSQL, Caddy, site,
+  daily backup) plus log rotation. The guide recommends a server **inside Iran** and warns that Docker Hub is usually
+  blocked there (registry mirror needed). Nothing in the guide marked "⚠️ بررسی‌نشده" has been tried on a real server.
+  The server starts with an empty database (the PC data is test data).
 - Port roadmap: [x] 1. main bot on Bale → free links. [x] 2. chat texts for Bale/toman. [x] 3. seller's own bot +
-  wallet token, toman prices, purchase flow (all verified by tests and a live smoke run of the main-bot commands;
-  the owner still has to test a real purchase in a seller bot). [~] 4. Mini App on `Bale.WebApp`: ported and
-  checked locally in the browser pane (dashboard, wallet, products, support, storefront load without JS errors);
-  NOT yet opened inside the Bale app, because that needs an HTTPS address (`WEBAPP_URL`). In-app payment
-  (`openInvoice`), opening chat links and the back button are untested on a real client. [ ] 5. in-app viewer.
-  [ ] 6. server + website (`website/` and `deploy/` are still the Telegram version).
+  wallet token, toman prices, purchase flow (verified by tests and live on Bale: the owner paid a test-wallet invoice
+  in `@babkad_bot` and got the file). [~] 4. Mini App on `Bale.WebApp`: ported and checked locally in the browser
+  pane at phone size (dashboard, wallet, products, editor, orders, support, storefront; no JS errors); NOT yet opened
+  inside the Bale app, because that needs an HTTPS address (`WEBAPP_URL`). In-app payment (`openInvoice`), opening
+  chat links and the back button are untested on a real client. [ ] 5. in-app viewer (optional; the buyer's name on
+  photos/PDFs is the current answer to "no forward lock"). [~] 6. website and deploy files are ready for Bale; the
+  server and domain are not bought yet.
+- **Open before launch (owner):** buy server + domain; a purchase with a real wallet token and Bale's fee; the exact
+  wallet-token menu in Bale's @botfather (the step-3 guide text and `/guide/` page describe it loosely on purpose);
+  name/photo/description of the main bot in @botfather; `SUPPORT_USERNAME`/`SUPPORT_EMAIL`/`ADMIN_IDS`; order a
+  physical product with a second Bale account. Claude told the owner on 2026-10-13 that an Iranian online shop may
+  need eNamad (اینماد) and that this is the owner's legal check, not something the code solves.
+- **Not verified / known risks:** PostgreSQL run of the test suite (no PostgreSQL on this PC); ffmpeg previews
+  (video frames, audio snippet); real refunds (`REFUNDS` stays off); Bale's API rate limits (broadcasts) and how many
+  long-polling seller bots one process can run (webhooks would scale better); Bale wallet token format.
 
 ---
 # Original Telegram context

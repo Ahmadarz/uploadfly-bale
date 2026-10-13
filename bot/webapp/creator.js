@@ -262,15 +262,6 @@ creator.sendTip = async function sendTip() {
   } catch (e) { haptic("error"); toast(errMsg(e.code)); }
 };
 
-// ---------------- ۱۸+ ----------------
-// خرید محتوای حساس: یک بار تأیید سن؛ بعد خرید دوباره امتحان می‌شود
-creator.confirmAdult = function confirmAdult(retry) {
-  tg.showConfirm(t("adult_confirm"), async (ok) => {
-    if (!ok) return;
-    try { await api(`/api/store/${STORE}/adult`, { method: "POST", body: "{}" }); me.adult_ok = true; retry(); }
-    catch (e) { toast(errMsg(e.code)); }
-  });
-};
 
 // ---------------- ویرایشگر پست: زمان‌بندی و «خبر به فن‌ها» ----------------
 const toLocalInput = (iso) => {

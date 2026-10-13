@@ -233,7 +233,7 @@ async def api_me(request: web.Request) -> web.Response:
         "name": user.first_name or "", "lang": user.language, "main_bot": request.app["main_username"],
         "shop": shop, "presets": PRICE_PRESETS, "max_price": MAX_PRICE, "categories": CATEGORIES,
         "title_max": TITLE_MAX, "description_max": DESCRIPTION_MAX, "withdraw_min": WITHDRAW_MIN,
-        "username": user.username, "adult_ok": user.adult_ok,
+        "username": user.username,
         "support": {"username": settings.support_username, "email": settings.support_email},
         "create_link": None if shop or guest_of_seller_bot(request) is not None
         else create_bot_link(request.app["main_username"], user),
@@ -1278,8 +1278,6 @@ async def api_store_invoice(request: web.Request) -> web.Response:
             Purchase.content_id == c.id, Purchase.buyer_id == user.id, Purchase.refunded.is_(False)))
     if seller.is_suspended:
         return error("suspended", 403)
-    if c.is_sensitive and c.owner_id != user.id and not user.adult_ok:
-        return error("adult_confirm", 409)   # یک بار تأیید ۱۸+ (POST /api/store/<bot>/adult)
     if c.price_stars == 0 or bought or c.owner_id == user.id or c.is_physical:   # کالا: فرم نشانی در چت
         return web.json_response({"open": f"https://ble.ir/{seller.bot_username}?start={c.code}"})
     if bot is None:

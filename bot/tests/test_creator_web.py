@@ -43,7 +43,7 @@ async def test_fans_and_wallet_earnings(env, client):  # noqa: F811
     assert w["earnings"]["sales"] == 10 and w["earnings"]["tips"] == 0
 
 
-async def test_explore_hides_unlisted_and_sensitive(env, client):  # noqa: F811
+async def test_explore_hides_unlisted_shops(env, client):  # noqa: F811
     hb = as_user(BUYER, via_shop=False)
     assert (await (await client.get("/api/explore", headers=hb)).json())["items"] == []   # هنوز پستی ندارد
     await make_product(env, price=10)
@@ -54,12 +54,8 @@ async def test_explore_hides_unlisted_and_sensitive(env, client):  # noqa: F811
     assert not (await (await client.get("/api/explore?q=zzz", headers=hb)).json())["items"]
     assert not (await (await client.get("/api/explore?cat=music", headers=hb)).json())["items"]
     assert (await client.get("/api/explore", headers=as_user(BUYER))).status == 403        # فقط از ربات اصلی
-    await make_product(env, price=10, sensitive=True)                                      # محتوای حساس → هرگز در کشف
-    assert (await (await client.get("/api/explore", headers=hb)).json())["items"] == []
-    async with SessionLocal() as s:
-        for c in (await s.scalars(select(Content).where(Content.is_sensitive.is_(True)))).all():
-            c.is_active = False
-        await s.commit()
+    await make_product(env, price=10, sensitive=True)            # بله: «حساس» فقط یعنی زودگذر؛ مانع کشف نیست
+    assert len((await (await client.get("/api/explore", headers=hb)).json())["items"]) == 1
     await client.patch("/api/creator", headers=owner(), json={"listed": False})
     assert (await (await client.get("/api/explore", headers=hb)).json())["items"] == []
 
@@ -139,15 +135,10 @@ async def test_schedule_draft(env, client):  # noqa: F811
     assert (await client.patch(f"/api/products/{cid}", headers=owner(), json={"publish_at": when})).status == 400
 
 
-async def test_adult_gate_in_mini_app(env, client):  # noqa: F811
+async def test_no_age_gate_in_mini_app(env, client):  # noqa: F811
     c = await make_product(env, price=10, sensitive=True)
     hb = as_user(BUYER)
-    r = await client.post(f"/api/store/{SHOP_ID}/invoice/{c.id}", headers=hb)
-    assert r.status == 409 and (await r.json())["error"] == "adult_confirm"
-    assert (await client.post(f"/api/store/{SHOP_ID}/adult", headers=hb)).status == 200
     assert (await (await client.post(f"/api/store/{SHOP_ID}/invoice/{c.id}", headers=hb)).json())["invoice"]
-    me = await (await client.get("/api/me", headers=hb)).json()
-    assert me["adult_ok"] is True
     async with SessionLocal() as s:
         assert (await s.scalar(select(Seller))).bot_id == SHOP_ID
 

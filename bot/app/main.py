@@ -61,7 +61,8 @@ async def main() -> None:
 
 
 async def start_mini_app(bot, manager: BotManager, username: str) -> str | None:
-    """وب‌سرور Mini App + آدرس HTTPS (ثابت روی سرور، تونل موقت روی مک) + دکمه‌ی منوی تلگرام."""
+    """وب‌سرور Mini App + آدرس HTTPS (ثابت روی سرور، تونل موقت روی کامپیوتر مالک اگر cloudflared باشد).
+    بله دکمه‌ی منو را از API نمی‌پذیرد (bale.UNSUPPORTED)؛ دکمه‌ی Mini App در /start می‌آید (handlers.start)."""
     await start_web(manager, username, settings.webapp_port)
     url = settings.webapp_url
     if not url:

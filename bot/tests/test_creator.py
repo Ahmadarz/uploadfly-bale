@@ -288,15 +288,11 @@ async def test_free_trial_once_then_subscribe(env):
         assert await showcases.start_trial(s, no_trial, BUYER) == "sc_no_trial"
 
 
-async def test_adult_confirmation_for_sensitive(env):
+async def test_sensitive_content_has_no_age_gate_on_bale(env):
+    """در بله محتوای بزرگسال کلاً ممنوع است؛ «حساس» فقط یعنی زودگذر، پس پرسش ۱۸+ نداریم."""
     c = await make_product(env, price=10, sensitive=True)
     await env.feed(env.shop, message(BUYER, f"/start {c.code}"))
-    assert "۱۸ سال" in env.tg.texts(SHOP_ID) and not env.tg.sent(SHOP_ID, "SendInvoice")
-    env.tg.clear()
-    await env.feed(env.shop, callback(BUYER, f"adult:{c.code}"))
-    assert env.tg.sent(SHOP_ID, "SendInvoice")
-    async with SessionLocal() as s:
-        assert (await s.get(User, BUYER)).adult_ok
+    assert "۱۸" not in env.tg.texts(SHOP_ID) and env.tg.sent(SHOP_ID, "SendInvoice")
     env.tg.clear()
     await env.feed(env.shop, message(BUYER, f"/start {c.code}"))          # دیگر نمی‌پرسد
     assert env.tg.sent(SHOP_ID, "SendInvoice")

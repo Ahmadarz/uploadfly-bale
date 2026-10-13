@@ -1,30 +1,45 @@
-# UploadFly
+# UploadFly برای بله
 
-ربات تلگرام برای صفحه‌ی سازنده (اشتراک، پست قفل‌دار، دونیت، پیام پولی، فروش فایل با استارز) + Mini App + سایت معرفی.
+فروشگاه داخل پیام‌رسان **بله**: فروش فایل و کالای فیزیکی با کیف پول بله (پول مستقیم به کیف پول خود فروشنده)،
+ویترین، عضویت ماهانه، حمایت مالی، پیام به مشتری‌ها، لینک رایگان برای هر فایل + Mini App + سایت معرفی.
+
+این مخزن نسخه‌ی بله است و هیچ ارتباطی با نسخه‌ی تلگرام ندارد.
 
 ## پوشه‌ها
 | پوشه | چیست |
 |---|---|
-| `bot/` | ربات تلگرام و Mini App (کد `app/`، صفحه‌ها `webapp/`، تست‌ها `tests/`، اسکریپت‌ها `scripts/`، `Dockerfile`، `design.md`). روی مک، `.env` و دیتابیس و `bot.log` هم همین‌جاست (در گیت نیستند). |
-| `website/` | سایت معرفی برای گوگل (`build.py`، `pages.py`، `assets/`، `Dockerfile`، تست `test_site.py`). خروجی: `website/dist`. |
-| `deploy/` | تنظیمات سرور: Caddy (HTTPS)، پشتیبان‌گیری روزانه، راهنمای فارسی راه‌اندازی سرور. |
-| `docker-compose.yml` | روی سرور همه را با هم بالا می‌آورد: ربات، دیتابیس، سایت، Caddy، پشتیبان. |
+| `bot/` | بازو و Mini App (کد `app/`، صفحه‌ها `webapp/`، تست‌ها `tests/`، `Dockerfile`، `design.md`). فایل `.env`، دیتابیس و `bot.log` هم همین‌جاست (در گیت نیستند). |
+| `website/` | سایت معرفی برای گوگل (`build.py`، `pages.py`، `assets/`، تست `test_site.py`). خروجی: `website/dist`. |
+| `deploy/` | تنظیمات سرور: Caddy (HTTPS)، پشتیبان‌گیری روزانه، [راهنمای فارسی راه‌اندازی سرور](deploy/README.fa.md). |
+| `docker-compose.yml` | روی سرور همه را با هم بالا می‌آورد: بازو، دیتابیس، سایت، Caddy، پشتیبان. |
+| `CLAUDE.md` | یادداشت‌های پروژه برای Claude: تصمیم‌ها، واقعیت‌های بله، نقشه‌ی راه. |
 
-## راه‌اندازی اولیه روی مک
+## اجرا روی کامپیوتر خودت (ویندوز، برای آزمایش)
+یک بار:
 ```
-cd ~/Projects/UploadFly
-/opt/homebrew/bin/python3.12 -m venv .venv
-.venv/bin/pip install -r bot/requirements.txt -r bot/requirements-dev.txt
-cp bot/.env.example bot/.env      # توکن ربات و ENCRYPTION_KEY را در bot/.env بگذار
-brew install ffmpeg cloudflared
+python -m venv .venv
+.venv\Scripts\pip install -r bot\requirements.txt -r bot\requirements-dev.txt
+copy bot\.env.example bot\.env
 ```
+بعد `BOT_TOKEN` و `ENCRYPTION_KEY` را در `bot\.env` بگذار.
 
-## کنترل ربات (سرویس launchd، پوشه‌ی کار: bot/)
-- ری‌استارت بعد از تغییر کد: `launchctl kickstart -k gui/$(id -u)/com.uploadfly.bot`
-- خاموش: `launchctl bootout gui/$(id -u)/com.uploadfly.bot`
-- روشن: `launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.uploadfly.bot.plist`
-- لاگ: `tail -f ~/Projects/UploadFly/bot/bot.log`
+هر بار: روی `start-bot.bat` دوبار کلیک کن. تا وقتی آن پنجره باز است بازو روشن است؛ برای خاموش کردن پنجره را ببند.
+لاگ در همان پنجره دیده می‌شود. هیچ‌وقت دو نسخه را با یک توکن هم‌زمان روشن نکن (کامپیوتر و سرور).
+
+Mini App روی همین کامپیوتر: `http://127.0.0.1:8080` (فقط با آدرس امضاشده باز می‌شود؛ داخل اپ بله آدرس HTTPS لازم است،
+یعنی سرور یا تونل موقت `cloudflared`).
 
 ## تست‌ها
-- همه (ربات + سایت): `.venv/bin/python -m pytest -q`
-- ساخت سایت روی مک: `.venv/bin/python website/build.py --url https://دامنه`
+```
+set PYTHONUTF8=1
+.venv\Scripts\python -m pytest -q
+```
+همه‌ی تست‌ها (بازو + سایت) با یک «بله‌ی ساختگی» اجرا می‌شوند و چیزی واقعاً فرستاده نمی‌شود.
+
+## ساخت سایت
+```
+.venv\Scripts\python website\build.py --url https://دامنه --bot نام‌بازو
+```
+
+## سرور
+[deploy/README.fa.md](deploy/README.fa.md)

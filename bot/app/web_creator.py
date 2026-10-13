@@ -113,12 +113,11 @@ async def api_explore(request: web.Request) -> web.Response:
         posts = (select(Content.bot_id, func.count(Content.id).label("n")).where(
             Content.is_active.is_(True), Content.is_draft.is_(False), Content.in_store.is_(True))
             .group_by(Content.bot_id).subquery())
-        # محتوای بزرگسالان هرگز در صفحه‌ی کشف نیست: فروشگاهی که حتی یک محتوای حساس فعال دارد، نشان داده نمی‌شود
-        sensitive = select(Content.bot_id).where(Content.is_active.is_(True), Content.is_sensitive.is_(True))
+        # نسخه‌ی بله: «حساس» فقط یعنی زودگذر (محتوای بزرگسال کلاً ممنوع است)، پس مانع دیده شدن در کشف نیست
         query = (select(Seller, User, posts.c.n).join(posts, posts.c.bot_id == Seller.bot_id)
                  .join(User, User.id == Seller.owner_id)
                  .where(Seller.is_active.is_(True), Seller.is_suspended.is_(False), Seller.listed.is_(True),
-                        User.is_banned.is_(False), Seller.bot_id.not_in(sensitive)))
+                        User.is_banned.is_(False)))
         if cat in creator.CREATOR_CATEGORIES:
             query = query.where(Seller.category == cat)
         if q:
@@ -259,16 +258,6 @@ async def api_store_dm(request: web.Request) -> web.Response:
     return web.json_response({"chat": chat, "sent": True})
 
 
-async def api_store_adult(request: web.Request) -> web.Response:
-    """تأیید ۱۸+ خریدار (یک بار؛ برای خرید محتوای حساس)."""
-    async with SessionLocal() as session:
-        user = await get_user(session, request)
-        user.adult_ok = True
-        await session.commit()
-    return web.json_response({"adult_ok": True})
-
-
-# --- سازنده: خبر «پست تازه» ---
 async def api_product_notify(request: web.Request) -> web.Response:
     async with SessionLocal() as session:
         user = await get_user(session, request)
@@ -303,7 +292,6 @@ def add_routes(app: web.Application) -> None:
     app.router.add_post("/api/store/{bot}/tip", api_store_tip)
     app.router.add_post("/api/store/{bot}/like/{id}", api_store_like)
     app.router.add_post("/api/sc/{code}/trial", api_sc_trial)
-    app.router.add_post("/api/store/{bot}/adult", api_store_adult)
     app.router.add_post("/api/store/{bot}/dm", api_store_dm)
     app.router.add_post("/api/products/{id}/notify", api_product_notify)
 

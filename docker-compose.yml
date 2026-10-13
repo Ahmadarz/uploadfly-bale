@@ -1,10 +1,18 @@
 # اجرای UploadFly روی سرور: docker compose up -d --build
 # همه‌ی تنظیمات و رمزها در فایل .env کنار همین فایل (نمونه: bot/.env.example)
-# پوشه‌ها: bot/ = ربات و Mini App، website/ = سایت، deploy/ = Caddy و پشتیبان‌گیری
+# پوشه‌ها: bot/ = بازو و Mini App، website/ = سایت، deploy/ = Caddy و پشتیبان‌گیری (راهنما: deploy/README.fa.md)
+# لاگ هر سرویس حداکثر ۳ فایل ۱۰ مگابایتی (وگرنه بعد از چند ماه دیسک سرور پر می‌شود)
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   db:
     image: postgres:16-alpine
     restart: unless-stopped
+    logging: *logging
     environment:
       POSTGRES_USER: uploadfly
       POSTGRES_DB: uploadfly
@@ -20,8 +28,9 @@ services:
   bot:
     build: ./bot
     restart: unless-stopped
+    logging: *logging
     env_file: .env
-    environment:  # این‌ها بر مقدارهای .env (که برای مک است) غلبه می‌کنند
+    environment:  # این‌ها بر مقدارهای .env غلبه می‌کنند
       DATABASE_URL: postgresql+asyncpg://uploadfly:${POSTGRES_PASSWORD}@db:5432/uploadfly
       WEBAPP_URL: https://${DOMAIN:?DOMAIN را در .env بگذار}
       WEBAPP_HOST: 0.0.0.0
@@ -46,6 +55,7 @@ services:
   caddy:
     image: caddy:2-alpine
     restart: unless-stopped
+    logging: *logging
     ports:
       - "80:80"
       - "443:443"
@@ -65,6 +75,7 @@ services:
   backup:
     image: postgres:16-alpine
     restart: unless-stopped
+    logging: *logging
     environment:
       PGPASSWORD: ${POSTGRES_PASSWORD}
     volumes:

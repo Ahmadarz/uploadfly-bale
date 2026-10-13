@@ -696,7 +696,6 @@ function humanDuration(s) {
 function editorValues() {
   const physical = $("ed-physical").checked;
   return { price: Number($("ed-price").value || 0), sensitive: !physical && $("ed-sensitive").checked,
-           allow_save: !physical && $("ed-save").checked,
            physical, stock: physical && $("ed-stock").value !== "" ? Number($("ed-stock").value) : null,
            in_store: state.edShowcases.main, showcases: [...state.edShowcases.ids].sort((a, b) => a - b),
            expires_at: $("ed-expiry").value,
@@ -705,7 +704,7 @@ function editorValues() {
 
 function isDirty() {
   const p = state.current, v = editorValues();
-  return p.status === "draft" || v.price !== p.price || v.sensitive !== p.sensitive || v.allow_save !== p.allow_save || v.in_store !== p.in_store
+  return p.status === "draft" || v.price !== p.price || v.sensitive !== p.sensitive || v.in_store !== p.in_store
     || v.showcases.join() !== [...(p.showcases || [])].sort((a, b) => a - b).join()
     || v.expires_at !== (p.expires_at ? localDate(p.expires_at) : "")
     || v.title !== (p.title || "") || v.description !== (p.description || "") || v.category !== p.category
@@ -716,12 +715,9 @@ function syncEditor() {
   const p = state.current, v = editorValues();
   document.querySelectorAll("#ed-chips .chip").forEach((c) => c.classList.toggle("active", Number(c.dataset.v) === v.price));
   document.querySelectorAll("#ed-cats .chip").forEach((c) => c.classList.toggle("active", c.dataset.c === v.category));
-  $("ed-save-row").classList.toggle("disabled", v.sensitive);
-  if (v.sensitive) $("ed-save").checked = false;
-  // کالای فیزیکی: موجودی به‌جای «حساس» و «اجازه‌ی ذخیره» (چیزی در چت تحویل نمی‌شود)
+  // کالای فیزیکی: موجودی به‌جای «حساس» (چیزی در چت تحویل نمی‌شود)
   $("ed-stock-box").classList.toggle("hidden", !v.physical);
   $("ed-sensitive-row").classList.toggle("hidden", v.physical);
-  $("ed-save-row").classList.toggle("hidden", v.physical);
   const mb = tg.MainButton;
   mb.setText(p.status === "draft" ? t("publish") : t("save"));
   if (isDirty() && p.status !== "archived") mb.show(); else mb.hide();
@@ -760,7 +756,6 @@ function openEditor(p) {
     b.onclick = () => { state.category = state.category === b.dataset.c ? null : b.dataset.c; tg.HapticFeedback?.selectionChanged(); syncEditor(); };
   });
   $("ed-sensitive").checked = p.sensitive;
-  $("ed-save").checked = p.allow_save;
   $("ed-physical").checked = !!p.physical;
   $("ed-physical-row").classList.toggle("hidden", p.status !== "draft");   // بعد از انتشار نوع محصول عوض نمی‌شود
   $("ed-stock").value = p.stock ?? "";
@@ -796,7 +791,7 @@ async function saveEditor() {
   if (v.price > p.price && v.price > cap) { haptic("error"); return toast(t("err_price_cap", cap)); }
   if (v.physical && v.price === 0) { haptic("error"); return toast(t("err_phys_price")); }
   if (v.physical && v.stock !== null && (!Number.isInteger(v.stock) || v.stock < 0 || v.stock > 100000)) { haptic("error"); return toast(t("err_bad_stock")); }
-  const body = { sensitive: v.sensitive, allow_save: v.allow_save, in_store: v.in_store, showcases: v.showcases,
+  const body = { sensitive: v.sensitive, in_store: v.in_store, showcases: v.showcases,
                  ...(v.expires_at !== (p.expires_at ? localDate(p.expires_at) : "") ? { expires_at: endOfDay(v.expires_at) } : {}), price: v.price, title: v.title, description: v.description };
   if (v.category !== p.category) body.category = v.category || null;
   if (p.status === "draft") { body.publish = true; body.physical = v.physical; }
@@ -847,11 +842,6 @@ function initEditor() {
   $("ed-stock").oninput = syncEditor;
   $("ed-expiry").onchange = syncEditor;
   $("ed-expiry-clear").onclick = () => { tap(); $("ed-expiry").value = ""; syncEditor(); };
-
-  $("ed-save").onchange = () => {
-    if ($("ed-sensitive").checked) { $("ed-save").checked = false; toast(t("err_sensitive_protected")); }
-    syncEditor();
-  };
   $("overlay").onclick = overlayClick;
   $("ed-copy").onclick = copyLink;
   $("ed-share").onclick = () => shareLink(state.current.link);
@@ -1050,7 +1040,7 @@ function openBuy(item) {
   $("buy-desc").textContent = item.description || "";
   $("buy-snippet").classList.toggle("hidden", !item.snippet);
   $("buy-snippet").textContent = item.snippet ? `${t("preview_label")} ${item.snippet}` : "";
-  $("buy-protect").textContent = item.allow_save ? t("buy_saveable") : t("buy_protect");
+  $("buy-protect").textContent = t("buy_protect");
   $("buy-sensitive").classList.toggle("hidden", !item.sensitive);
 
   syncBuyButtons();
@@ -1186,7 +1176,6 @@ async function buyCurrent() {
       $("buy-sheet").scrollTo({ top: 0, behavior: "smooth" });  // پنل «خریدی» بالای برگه
     });
   } catch (e) {
-    if (e.code === "adult_confirm") return creator.confirmAdult(buyCurrent);  // محتوای حساس: یک بار تأیید ۱۸+
     haptic("error"); toast(errMsg(e.code));
   }
   finally { mb.hideProgress(); mb.enable(); }
@@ -1664,6 +1653,11 @@ async function saveStory() {
     try { tg.downloadFile({ url: await storyPublicUrl(), file_name: "uploadfly-story.jpg" }); return; }
     catch (e) { /* راه دوم */ }
   }
+  // بله دانلود فایل ندارد: برگه‌ی اشتراک گوشی (ذخیره در گالری یا مستقیم به اینستاگرام)، اگر مرورگر داخلی اجازه بدهد
+  try {
+    const file = new File([storyState.blob], "uploadfly-story.jpg", { type: "image/jpeg" });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file] }); return; }
+  } catch (e) { if (e && e.name === "AbortError") return; /* کاربر بست؛ وگرنه راه سوم */ }
   toast(t("story_longpress"));
 }
 

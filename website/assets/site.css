@@ -123,23 +123,6 @@ p { margin: 0; }
 .band .h2 { margin-bottom: 6px; color: #fff; }
 .band p { color: rgb(255 255 255 / 0.8); }
 
-/* کره‌ی «بازار تو: کل زمین» (globe.js): نقطه‌های خشکی، قوس فروش با ستاره، با موس/انگشت می‌چرخد */
-.globe-sec { --globe-dot: var(--accent); --globe-arc: #1fa6c9; --globe-star: #e6a100;
-  --globe-glow: rgb(91 91 214 / 0.16); --globe-glow-0: rgb(91 91 214 / 0); --globe-ball: rgb(91 91 214 / 0.1); --globe-ball-0: rgb(91 91 214 / 0.02); overflow: hidden; }
-@media (prefers-color-scheme: dark) {
-  .globe-sec { --globe-dot: #a5a5ff; --globe-arc: #5fd6f2; --globe-star: #ffc53d; --globe-glow: rgb(133 133 250 / 0.22); --globe-glow-0: rgb(133 133 250 / 0); --globe-ball: rgb(133 133 250 / 0.12); --globe-ball-0: rgb(133 133 250 / 0.03); }
-}
-.globe-head { display: grid; justify-items: center; text-align: center; }
-.globe-head .lead { margin-top: 0; }
-.globe { position: relative; height: clamp(320px, 46vw, 560px); margin-top: 8px; border-bottom: 1px solid var(--line); cursor: grab; outline-offset: -3px; }
-.globe.grabbing { cursor: grabbing; }
-.globe canvas { display: block; width: 100%; height: 100%; touch-action: pan-y; -webkit-user-select: none; user-select: none; }
-.globe-hint { position: absolute; inset-inline-end: 0; bottom: 12px; padding: 4px 12px; border-radius: 999px; background: var(--surface); border: 1px solid var(--line); color: var(--ink-3); font-size: 13px; pointer-events: none; }
-.globe-cells { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
-.globe-cell { padding: 26px 24px; border-inline-end: 1px solid var(--line); }
-.globe-cell:last-child { border-inline-end: 0; }
-.globe-cell h3 { font-size: 18px; margin: 12px 0 6px; }
-.globe-cell p { color: var(--ink-2); font-size: 15px; line-height: 1.8; }
 .cell-ic { width: 26px; height: 26px; fill: none; stroke: var(--accent); stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 
 /* ---------- متن راهنما ---------- */
@@ -207,10 +190,6 @@ p { margin: 0; }
   .top-cta { padding: 0 12px; font-size: 13px; }
   .brand span { display: none; }
   .flow { padding: 18px; }
-  .globe { height: 340px; }
-  .globe-cells { grid-template-columns: 1fr; }
-  .globe-cell { border-inline-end: 0; border-bottom: 1px solid var(--line); padding: 22px 4px; }
-  .globe-cell:last-child { border-bottom: 0; }
   .compare th, .compare td { padding: 12px 10px; font-size: 14px; }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; scroll-behavior: auto !important; } }

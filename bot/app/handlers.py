@@ -132,11 +132,7 @@ async def open_link(message: Message, command: CommandObject, session: AsyncSess
         await message.answer(T(db_user.language)["not_found"])
         return
 
-    if content.is_sensitive and content.owner_id != db_user.id and not db_user.adult_ok:
-        t = T(db_user.language)   # محتوای حساس: یک بار تأیید ۱۸+
-        await message.answer(t["adult_confirm"], reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
-            InlineKeyboardButton(text=t["btn_adult_yes"], callback_data=f"adult:{content.code}")]]))
-        return
+    # نسخه‌ی بله تأیید ۱۸+ ندارد: محتوای بزرگسال کلاً ممنوع است و «حساس» فقط یعنی «بعد از دیدن پاک می‌شود»
     content.views += 1
     if content.is_physical and seller is not None:   # کالای فیزیکی: کارت محصول و دکمه‌ی سفارش (نه تحویل در چت)
         from app import orders
@@ -417,22 +413,6 @@ async def price_typed(message: Message, session: AsyncSession, db_user: User, bo
     if content is None or not content.is_draft:  # در این فاصله از Mini App منتشر شده
         return
     await publish(bot, message.chat.id, content, int(text), db_user.language)
-
-
-@router.callback_query(F.data.startswith("adult:"))
-async def adult_ok(callback: CallbackQuery, session: AsyncSession, db_user: User, bot: Bot, seller: Seller | None,
-                   state: FSMContext, main_username: str, webapp_url: str | None = None):
-    db_user.adult_ok = True
-    await session.commit()
-    await callback.answer()
-    try:
-        await callback.message.delete()
-    except Exception:
-        pass
-    code = callback.data[6:]
-    fake = callback.message.model_copy(update={"from_user": callback.from_user}).as_(bot)
-    await open_link(fake, CommandObject(prefix="/", command="start", args=code), session, db_user, bot, seller,
-                    state, main_username, webapp_url)
 
 
 @router.message(F.text.startswith("/"))

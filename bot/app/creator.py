@@ -46,7 +46,10 @@ BIO_MAX, WELCOME_MAX = 300, 1000
 BROADCASTS_PER_DAY = 3        # پیام گروهی: سقف روزانه‌ی هر سازنده
 DM_PER_HOUR = 30              # پیام هر فن به هر سازنده در یک ساعت
 HEADER_GAP = timedelta(minutes=30)  # سربرگ «پیام از …» فقط وقتی گفت‌وگو عوض شده یا مدتی گذشته
-SEND_GAP = 0.05               # فاصله‌ی ارسال‌های گروهی (زیر سقف ۳۰ پیام در ثانیه‌ی تلگرام)
+SEND_GAP = 0.05               # فاصله‌ی ارسال‌های گروهی
+# بله برای پیام‌های بازو سقف «تعاملی» دارد (docs.bale.ai: ظرفیت هر بازو به تعامل کاربرانش بستگی دارد؛ ارسال انبوه
+# با API پولی «کسب‌وکاری» است). اگر این‌همه ارسال پشت سر هم رد شد، ادامه نمی‌دهیم و به صاحب بازو راستش را می‌گوییم
+BROADCAST_GIVE_UP_AFTER = 12
 
 TASKS: set[asyncio.Task] = set()  # ارسال‌های گروهی در پس‌زمینه (تست‌ها منتظرشان می‌مانند)
 
@@ -596,8 +599,10 @@ async def start_broadcast(where: Message, session: AsyncSession, db_user: User, 
 
 async def run_broadcast(bot: Bot, owner_id: int, broadcast_id: int, ids: list[int], message_id: int | None,
                         content_id: int | None, webapp_url: str | None, owner_lang: str) -> int:
+    from aiogram.exceptions import TelegramRetryAfter
+
     from app.payments import send_offer
-    sent = 0
+    sent, fails, limited = 0, 0, False
     async with SessionLocal() as session:
         content = await session.get(Content, content_id) if content_id else None
         langs = dict((await session.execute(select(User.id, User.language).where(User.id.in_(ids or [0])))).all())
@@ -612,17 +617,23 @@ async def run_broadcast(bot: Bot, owner_id: int, broadcast_id: int, ids: list[in
                     await send_offer(bot, uid, content, lang, store_url(webapp_url, bot.id))
                 else:
                     await deliver(bot, uid, content, session, lang)
-                sent += 1
+                sent, fails = sent + 1, 0
+            except TelegramRetryAfter:
+                limited = True   # بله صریحاً گفته «فعلاً نفرست»
+                break
             except Exception:
-                pass   # فن ربات را بلاک کرده
+                fails += 1       # معمولاً: مشتری بازو را مسدود کرده
+                if fails >= BROADCAST_GIVE_UP_AFTER:
+                    limited = True
+                    break
             await asyncio.sleep(SEND_GAP)
         row = await session.get(Broadcast, broadcast_id)
         if row:
             row.sent = sent
         await session.commit()
     try:
-        await bot.send_message(owner_id, T(owner_lang)["bc_done"].format(sent=sent, total=len(ids)),
-                               disable_notification=True)
+        await bot.send_message(owner_id, T(owner_lang)["bc_limited" if limited else "bc_done"].format(
+            sent=sent, total=len(ids)), disable_notification=True)
     except Exception:
         pass
     return sent

@@ -86,7 +86,7 @@ async def test_store_invoice_answers_a_clear_error(env, client):
 
 async def test_wallet_deep_link_starts_the_wallet_step(env):
     await env.feed(env.main, message(OWNER, "/start wallet"))
-    assert "توکن کیف پول" in env.tg.texts(MAIN_ID)
+    assert "توکن پرداخت کیف پول" in env.tg.texts(MAIN_ID)
     await env.feed(env.main, message(OWNER, "WALLET-TEST-1111111111111111"))
     assert "کیف پول" in env.tg.texts(MAIN_ID) and env.tg.sent(MAIN_ID, "DeleteMessage")
     await env.feed(env.main, callback(OWNER, "shop:home"))   # حالت گفت‌وگو تمام شده و فروشگاه سر جایش است

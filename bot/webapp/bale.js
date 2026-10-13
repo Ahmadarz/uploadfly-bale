@@ -92,6 +92,14 @@
     box.append(p, acts); wrap.appendChild(box); document.body.appendChild(wrap);
   }
 
+  const atLeast = (need) => {
+    const a = String(B.version || "0").split("."), b = need.split(".");
+    for (let i = 0; i < Math.max(a.length, b.length); i++) {
+      const x = parseInt(a[i]) || 0, y = parseInt(b[i]) || 0;
+      if (x !== y) return x > y;
+    }
+    return true;
+  };
   const vibrate = (ms) => safe(() => navigator.vibrate && navigator.vibrate(ms));
   const status = (r) => (typeof r === "string" ? r : (r && r.status) || "failed");  // بله: رشته یا {status}
 
@@ -101,6 +109,7 @@
     get colorScheme() { return B.colorScheme || "light"; },
     get themeParams() { return B.themeParams || {}; },
     get version() { return B.version; },
+    get isMiniAppSupported() { return B.isMiniAppSupported !== false; },   // false = اپ بله قدیمی است
     platform: "bale",
     isBale: true,
     MainButton,
@@ -127,6 +136,8 @@
     openLink(url) { if (safe(() => { B.openLink(url); return true; }) !== true) window.open(url, "_blank", "noopener"); },
     openTelegramLink(url) { if (safe(() => { B.openLink(url); return true; }) !== true) window.location.href = url; },
     openInvoice(invoice, cb) {
+      // پرداخت داخل مینی‌اپ از نسخه‌ی ۱.۳ کتابخانه‌ی بله آمده؛ کلاینت قدیمی‌تر بی‌صدا هیچ کاری نمی‌کند
+      if (!atLeast("1.3")) { if (cb) cb("unsupported"); return; }
       try { B.openInvoice(invoice, (r) => cb && cb(status(r))); } catch (e) { if (cb) cb("failed"); }
     },
     showConfirm(message, cb) { dialog(message, true, cb); },

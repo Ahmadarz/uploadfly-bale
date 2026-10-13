@@ -1125,6 +1125,7 @@ async function joinShowcase() {
     const res = await api(`/api/sc/${SC}/join`, { method: "POST", body: "{}" });
     if (res.member) return reloadStore();
     tg.openInvoice(res.invoice, async (status) => {
+      if (status === "unsupported") return toast(t("old_bale_pay"));
       if (status !== "paid") return;
       haptic("success"); toast(t("sc_joined_toast"));
       for (let i = 0; i < 8; i++) {   // پرداخت چند ثانیه طول می‌کشد تا به ربات برسد
@@ -1169,6 +1170,7 @@ async function buyCurrent() {
     const res = await api(`/api/store/${STORE}/invoice/${item.id}`, { method: "POST", body: "{}" });
     if (res.open) { openTelegram(res.open); return; }  // رایگان یا محصول خود فروشنده: تحویل در چت
     tg.openInvoice(res.invoice, (status) => {
+      if (status === "unsupported") return payInChat(`https://ble.ir/${res.bot}?start=${item.code}`);
       if (status !== "paid") return;
       // Mini App باز می‌ماند: خریدار همین‌جا «نمایش» یا «بازپرداخت» را انتخاب می‌کند
       haptic("success"); toast(t("paid_toast"));
@@ -1180,6 +1182,9 @@ async function buyCurrent() {
   }
   finally { mb.hideProgress(); mb.enable(); }
 }
+
+// اپ بله‌ی قدیمی پرداخت داخل مینی‌اپ ندارد: همان خرید در چت فروشگاه انجام می‌شود
+function payInChat(link) { toast(t("pay_in_chat")); openTelegram(link); }
 
 let storeHandlersReady = false;
 

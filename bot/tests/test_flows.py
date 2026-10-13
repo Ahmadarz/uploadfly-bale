@@ -177,7 +177,7 @@ async def test_connect_asks_bot_token_then_wallet_token(env):
     async with SessionLocal() as s:
         seller = await s.scalar(select(Seller).where(Seller.bot_id == 3000003))
     assert seller and seller.owner_id == BUYER and seller.is_active and seller.wallet_enc is None
-    assert 3000003 in env.manager.started and "توکن کیف پول" in env.tg.texts(MAIN_ID)
+    assert 3000003 in env.manager.started and "توکن پرداخت کیف پول" in env.tg.texts(MAIN_ID)
     # توکن کیف پول نامعتبر (شکل اشتباه) رد می‌شود و حالت می‌ماند
     env.tg.clear()
     await env.feed(env.main, message(BUYER, "توکن غلط با فاصله"))

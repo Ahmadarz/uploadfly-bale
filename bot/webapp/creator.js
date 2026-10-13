@@ -258,7 +258,10 @@ creator.sendTip = async function sendTip() {
     const res = await api(`/api/store/${STORE}/tip`, { method: "POST",
       body: JSON.stringify({ amount, ...(creator.tipFor ? { content_id: creator.tipFor } : {}) }) });
     closeLangSheet();
-    tg.openInvoice(res.invoice, (status) => { if (status === "paid") { haptic("success"); toast(t("tip_thanks_toast")); } });
+    tg.openInvoice(res.invoice, (status) => {
+      if (status === "unsupported") return payInChat(`https://ble.ir/${store.data.shop.bot}?start=donate`);
+      if (status === "paid") { haptic("success"); toast(t("tip_thanks_toast")); }
+    });
   } catch (e) { haptic("error"); toast(errMsg(e.code)); }
 };
 

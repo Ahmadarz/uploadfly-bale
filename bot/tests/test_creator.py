@@ -381,3 +381,27 @@ async def test_chat_threads_both_ways_like_anonymous_chat(env):
     env.tg.clear()
     await env.feed(env.shop, reply_to(OWNER, answer["message"]["message_id"], "خواهش 🙂"))
     assert env.tg.sent(SHOP_ID, "CopyMessage")[0]["chat_id"] == BUYER
+
+
+async def test_broadcast_stops_and_says_so_when_bale_refuses(env, monkeypatch):
+    """بله برای پیام‌های بازو سقف تعاملی دارد: اگر ارسال‌ها پشت سر هم رد شد، ادامه نمی‌دهیم و راستش را می‌گوییم."""
+    from aiogram.exceptions import TelegramRetryAfter
+    from aiogram.methods import CopyMessage
+    for uid in (BUYER, STRANGER):
+        await env.feed(env.shop, message(uid, "/start"))
+    await env.feed(env.shop, message(OWNER, "/broadcast"))
+    await env.feed(env.shop, callback(OWNER, "bc:all"))
+    await env.feed(env.shop, message(OWNER, "خبر تازه"))
+    (confirm,) = [b for b in env.tg.buttons(SHOP_ID) if b.get("callback_data", "").startswith("bcgo:") and b["callback_data"] != "bcgo:x"]
+
+    async def refused(self, chat_id, from_chat_id, message_id, **kw):
+        raise TelegramRetryAfter(method=CopyMessage(chat_id=chat_id, from_chat_id=from_chat_id, message_id=message_id),
+                                 message="Too Many Requests", retry_after=30)
+    monkeypatch.setattr(type(env.shop), "copy_message", refused)
+    env.tg.clear()
+    await env.feed(env.shop, callback(OWNER, confirm["callback_data"]))
+    await creator.drain()
+    text = env.tg.texts(SHOP_ID)
+    assert "نیمه‌کاره" in text and "به 0 نفر از 2 نفر" in text
+    async with SessionLocal() as s:
+        assert (await s.scalar(select(Broadcast))).sent == 0

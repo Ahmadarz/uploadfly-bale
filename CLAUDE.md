@@ -8,7 +8,7 @@
 - Owner's PC is Windows: project at `E:/cloud/uploadfly-bale`, venv at `.venv/Scripts/python.exe` (**Python 3.10**, so
   no 3.11-only APIs such as `asyncio.timeout`; the Docker image is 3.12), secrets in `bot/.env`.
   Tests (PowerShell): `$env:PYTHONUTF8='1'; .venv/Scripts/python.exe -m pytest -q` (without UTF-8 mode some tests fail
-  on cp1252; 183 tests on 2026-10-13: bot + website). No ffmpeg, Docker, cloudflared or `gh` here yet.
+  on cp1252; 184 tests on 2026-10-13: bot + website). No ffmpeg, Docker, cloudflared or `gh` here yet.
   Test bot on Bale: `@uploadflybot`; the owner's test shop is `@babkad_bot` (public test wallet token).
   The owner starts the bot with `start-bot.bat` (repo root); Claude runs it as a background task
   (`cd bot && PYTHONUTF8=1 ../.venv/Scripts/python.exe -m app.main > bot.log 2>&1`). Never two copies at once.
@@ -32,6 +32,24 @@
     `photo`/file_ids, so previews with several frames are uploaded one by one (`preview.create`), and sending a
     preview can never block publishing any more.
   - `refundStarPayment` exists as a handler but returned 500 on a test-token payment; real refunds are unverified.
+  - **From Bale's own docs (read 2026-10-13, docs.bale.ai and /miniapp):**
+    - Payment: the bot needs a "توکن پرداخت کیف پول" made in @botfather for that bot; the money goes at once to the
+      wallet of the bot's developer. Card-to-card invoices were removed; the wallet is the only official way. Wallets
+      come as personal / business / organisational; the wallet API lists transaction inquiry, **reversal** and
+      **split (تسهیم)** services (a possible future path for refunds or a platform fee; not explored).
+    - **Rate limits are "interactive"**: a bot's sending capacity depends on how much its users interact with it in
+      private chats. Bulk or re-engagement messages are meant for the paid business API
+      (`tapi.bale.ai/business/bot<TOKEN>/…`, charged per message from a business panel balance; only getMe,
+      sendMessage, forwardMessage and file_id sends). So `/broadcast` may be cut off: `creator.run_broadcast` stops on
+      `TelegramRetryAfter` or after 12 failures in a row and tells the owner (`bc_limited`).
+    - Files: by file_id no limit; multipart upload 10 MB photos / 50 MB other; bots download up to 20 MB;
+      `sendVoice` needs ogg ≤ 1 MB.
+    - Mini App: every bot has one **main Mini App**, enabled in @botfather (direct link `ble.ir/<bot>?startapp[=p]`,
+      search, bot profile, chat list); the menu button can also be pointed at a Mini App there. Bale web opens Mini
+      Apps in an iframe (CSP `frame-src https://*.bale.ai`, no `X-Frame-Options`; already so). Old clients:
+      `Bale.WebApp.isMiniAppSupported` is false and `openInvoice` needs SDK version ≥ 1.3; the adapter answers
+      `"unsupported"` and the app sends the buyer to pay in the shop chat (`payInChat`). Bale says in-app payment
+      can break on old Android with URL-based routers; this app has no router (keep it that way).
   - `editMessageText` returns `message_id: 0`; `successful_payment` messages also have `message_id: 0`.
 - Decisions (owner, 2026-10-12):
   1. **Money goes straight to the seller**: each seller creates their own bot in Bale's @botfather and gives us the bot

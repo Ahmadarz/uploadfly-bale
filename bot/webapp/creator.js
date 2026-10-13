@@ -277,6 +277,7 @@ creator.renderEditor = function renderEditor(p) {
   $("ed-schedule").classList.toggle("hidden", !draft);
   $("ed-schedule-at").value = p.publish_at ? toLocalInput(p.publish_at) : "";
   $("ed-schedule-at").min = toLocalInput(new Date(Date.now() + 5 * 60000).toISOString());
+  syncJalali();
   $("ed-schedule-note").textContent = p.publish_at ? t("ed_scheduled_for", shortDay(p.publish_at) + " " + toLocalInput(p.publish_at).slice(11))
     : t("ed_schedule_hint");
   $("ed-schedule-btn").textContent = p.publish_at && !$("ed-schedule-at").value ? t("ed_schedule_cancel") : t("ed_schedule_btn");

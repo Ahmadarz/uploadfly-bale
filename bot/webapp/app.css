@@ -998,3 +998,6 @@ p { margin: 0; }
 .row-value.alert { min-width: 22px; padding: 0 var(--space-2xs); border-radius: var(--radius-pill); background: var(--color-danger); color: #fff; font-weight: 700; text-align: center; }
 .card-meta .link-only.out { background: var(--color-danger-soft); color: var(--color-danger); }
 #ship-sheet .text-input { margin: var(--space-xs) 0 var(--space-sm); text-align: start; }
+/* تاریخ شمسیِ همان روزی که در تقویم (میلادی) گوشی انتخاب شده */
+.jdate { display: block; min-height: 1.2em; font-size: var(--text-xs); color: var(--color-accent) !important; font-weight: 600; }
+.jdate:empty { display: none; }

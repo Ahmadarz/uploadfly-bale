@@ -163,7 +163,8 @@
   - Small stat tiles shorten millions (`shortSum`: "12.5" + "میلیون تومان"); full numbers do not fit at 375px.
   - Story card "save": Bale has no `downloadFile`; the phone's share sheet is tried (`navigator.share` with a file),
     then the long-press hint.
-  - Known rough edge: `<input type="date">` (product expiry, showcase expiry) shows the Gregorian calendar.
+  - Date fields (`<input type="date">`: product expiry, showcase expiry, schedule) open the phone's Gregorian
+    picker; the same day is written in the Persian calendar right under the field (`syncJalali`, `.jdate`).
   - CSP allows framing by `*.bale.ai` (Bale web opens Mini Apps in an iframe); never send `X-Frame-Options`.
 - **Website for Bale** (2026-10-13; `website/`, Persian only): pages `/`, `/sell/`, `/goods/` (physical goods),
   `/free-link/`, `/showcase/`, `/guide/` (bot + wallet token in 3 steps), `/faq/`, `/terms/`, `/privacy/`, `/404.html`.

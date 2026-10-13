@@ -43,6 +43,20 @@ async function loadDict(l) {
   dicts[l] = await res.json();
 }
 const $ = (id) => document.getElementById(id);
+// تقویم انتخاب تاریخ گوشی میلادی است؛ زیر هر فیلد تاریخ، همان روز به تقویم شمسی نوشته می‌شود
+function syncJalali() {
+  document.querySelectorAll(".jdate").forEach((el) => {
+    const input = $(el.dataset.for), v = input && input.value;
+    const d = v ? new Date(v.length === 10 ? `${v}T12:00:00` : v) : null;
+    if (!d || isNaN(d)) { el.textContent = ""; return; }
+    // «شنبه ۲۵ مهر ۱۴۰۵» (ترتیب پیش‌فرض مرورگر برای fa-IR برعکس است)
+    const p = Object.fromEntries(new Intl.DateTimeFormat("fa-IR", { weekday: "long", day: "numeric", month: "long", year: "numeric" })
+      .formatToParts(d).map((x) => [x.type, x.value]));
+    const time = v.length > 10 ? ` · ${new Intl.DateTimeFormat("fa-IR", { hour: "2-digit", minute: "2-digit" }).format(d)}` : "";
+    el.textContent = `${p.weekday} ${p.day} ${p.month} ${p.year}${time}`;
+  });
+}
+document.addEventListener("change", (e) => { if (e.target.matches?.('input[type="date"], input[type="datetime-local"]')) syncJalali(); });
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 // متن خطای سرور؛ اگر ترجمه‌ای برای این کد نیست، خطای عمومی (نه خود کد)
 const errMsg = (code, ...args) => ((dicts[lang]?.[`err_${code}`] ?? dicts.en?.[`err_${code}`]) ? t(`err_${code}`, ...args) : t("err_generic"));
@@ -437,6 +451,7 @@ async function openShowcaseEditor(id) {
   $("sce-price").value = data.price || "";
   $("sce-private").checked = $("sce-private2").checked = !!data.private;
   $("sce-expiry").value = data.expires_at ? localDate(data.expires_at) : "";
+  syncJalali();
   showScePage(id ? "manage" : "name");
   $("overlay").classList.add("open"); $("sc-editor").classList.add("open");
   tg.BackButton.show();
@@ -604,7 +619,7 @@ function initShowcaseEditor() {
   $("sce-look").onclick = async () => { tap(); const code = scEd.code; closeShowcaseEditor(); await openStore(me.shop.bot_id, true, code); openLookSheet(); };
   const preview = () => { const code = scEd.code; closeShowcaseEditor(); openStore(me.shop.bot_id, true, code); };
   $("sce-preview").onclick = preview; $("sce-done-view").onclick = preview;
-  $("sce-expiry-clear").onclick = () => { tap(); $("sce-expiry").value = ""; };
+  $("sce-expiry-clear").onclick = () => { tap(); $("sce-expiry").value = ""; syncJalali(); };
   $("sce-archive").onclick = sceArchive;
   $("sce-delete").onclick = () => tg.showConfirm(t("sc_delete_confirm"), async (ok) => {
     if (!ok) return;
@@ -718,6 +733,7 @@ function syncEditor() {
   // کالای فیزیکی: موجودی به‌جای «حساس» (چیزی در چت تحویل نمی‌شود)
   $("ed-stock-box").classList.toggle("hidden", !v.physical);
   $("ed-sensitive-row").classList.toggle("hidden", v.physical);
+  syncJalali();
   const mb = tg.MainButton;
   mb.setText(p.status === "draft" ? t("publish") : t("save"));
   if (isDirty() && p.status !== "archived") mb.show(); else mb.hide();

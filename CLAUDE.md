@@ -8,7 +8,7 @@
 - Owner's PC is Windows: project at `E:/cloud/uploadfly-bale`, venv at `.venv/Scripts/python.exe` (**Python 3.10**, so
   no 3.11-only APIs such as `asyncio.timeout`; the Docker image is 3.12), secrets in `bot/.env`.
   Tests (PowerShell): `$env:PYTHONUTF8='1'; .venv/Scripts/python.exe -m pytest -q` (without UTF-8 mode some tests fail
-  on cp1252; 184 tests on 2026-10-13: bot + website). No ffmpeg, Docker, cloudflared or `gh` here yet.
+  on cp1252; 185 tests on 2026-10-13: bot + website). No ffmpeg, Docker, cloudflared or `gh` here yet.
   Test bot on Bale: `@uploadflybot`; the owner's test shop is `@babkad_bot` (public test wallet token).
   The owner starts the bot with `start-bot.bat` (repo root); Claude runs it as a background task
   (`cd bot && PYTHONUTF8=1 ../.venv/Scripts/python.exe -m app.main > bot.log 2>&1`). Never two copies at once.
@@ -177,10 +177,38 @@
   official Bale-version profiles exist (the Telegram product's channels and Instagram must not be linked).
   `assets/og-fa.jpg` was drawn in the browser on a canvas (Pillow here has no raqm, so it cannot shape Persian):
   a throw-away local page draws 1200×630 and POSTs the PNG back; keep the tab in the foreground while it draws.
-- **Deploy for Bale** (`deploy/README.fa.md`, `docker-compose.yml`): same Docker stack (bot, PostgreSQL, Caddy, site,
-  daily backup) plus log rotation. The guide recommends a server **inside Iran** and warns that Docker Hub is usually
-  blocked there (registry mirror needed). Nothing in the guide marked "⚠️ بررسی‌نشده" has been tried on a real server.
-  The server starts with an empty database (the PC data is test data).
+- **Deploy for Bale** (`deploy/README.fa.md`): two compose files. `docker-compose.yml` = a server of its own (bot,
+  PostgreSQL, Caddy, site, backup). `docker-compose.shared.yml` = a server that already runs other apps behind its own
+  Caddy (no Caddy of ours, app only on `127.0.0.1:${APP_PORT}`, site built into `./site-dist`, images through
+  `${REGISTRY}` = `public.ecr.aws/docker/library/` by default; Caddy snippet: `deploy/shared-host/uploadfly.caddy.example`).
+- **LIVE since 2026-10-13 on the owner's shop-builder server** (owner decision: same server, fully separate):
+  - Host `37.32.46.82` (`metalag-host`, Ubuntu 24.04, 8 cores, 16 GB), user `ahmad` with passwordless sudo; docker
+    needs `sudo -n docker`. SSH from the owner's PC with the key the shop project already uses:
+    `ssh -i ~/.ssh/ayandenama-claude-ed25519 ahmad@37.32.46.82` (the owner told Claude to take the access from there).
+  - **That server is production for the owner's other business** (Metalag shop builder: ~27 `metalag-*` /
+    `metalog-*` containers, MySQL, a system Caddy serving babkad.com, cafenik.com, shamsahome.ir, byhiva.ir,
+    atasports.ir, ayandenamagiti.ir …). Never touch its containers, `/home/ahmad/*`, `/opt/metalog` or ports
+    182xx/189xx. Heavy docker commands (`docker images`, builds) are slow there; builds push the load to ~8.
+  - UploadFly lives only in `/srv/uploadfly-bale` (code copied with `git archive`, no git checkout there), compose
+    project `uploadfly-bale` (containers `uploadfly-bale-{bot,db,backup}-1`), app on `127.0.0.1:18700`, `.env` there
+    (mode 600; copied from the PC `.env` + `POSTGRES_PASSWORD`, `APP_PORT`, `ADMIN_IDS=101386086`, `MAIN_BOT`).
+    Fresh PostgreSQL database (the PC data was test data and was not moved). Daily backups in `./backups`.
+  - Update after a code change (from the repo root on the PC):
+    `git archive --format=tar HEAD | ssh -i ~/.ssh/ayandenama-claude-ed25519 ahmad@37.32.46.82 'tar -x -C /srv/uploadfly-bale'`
+    then on the server `cd /srv/uploadfly-bale && sudo -n docker compose -f docker-compose.shared.yml up -d --build db bot backup`.
+    Start long server commands with `nohup … > file 2>&1 < /dev/null &` and read the log (an open SSH session hangs).
+  - Logs: `sudo -n docker compose -f docker-compose.shared.yml logs --tail 50 bot`.
+  - **The PC bot must stay off** (`start-bot.bat` would steal updates from the server: same token).
+  - The whole bot test suite passed on the server on PostgreSQL 16 / Python 3.12 inside Docker (182 tests,
+    2026-10-13); that was the first PostgreSQL run of the Bale version.
+  - NOT done yet (needs the domain name from the owner): DNS A records `@`, `www`, `app` → `37.32.46.82` (Arvan
+    panel, cloud proxy off); `/etc/caddy/uploadfly-bale.caddy` + ONE `import` line at the end of the shared
+    `/etc/caddy/Caddyfile` (back it up as `Caddyfile.before-uploadfly-<date>` like the others, `caddy validate`,
+    then `systemctl reload caddy`); `WEBAPP_URL=https://app.<domain>` and `SITE_DOMAIN` in `.env`; build the site
+    (`--profile site run --rm site`); main Mini App in @botfather. Until then the bot works in chat, without Mini App.
+- `ALLOW_TEST_WALLET` (default off; `=1` in tests and in the PC `.env`): Bale's public `WALLET-TEST-…` token moves no
+  money, so on the real server `/wallet` refuses it (`wallet_test_refused`) and `bale.set_wallet` treats a stored
+  test token as "no wallet".
 - Port roadmap: [x] 1. main bot on Bale → free links. [x] 2. chat texts for Bale/toman. [x] 3. seller's own bot +
   wallet token, toman prices, purchase flow (verified by tests and live on Bale: the owner paid a test-wallet invoice
   in `@babkad_bot` and got the file). [~] 4. Mini App on `Bale.WebApp`: ported and checked locally in the browser
